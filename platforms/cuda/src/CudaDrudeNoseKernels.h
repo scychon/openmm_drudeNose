@@ -71,13 +71,15 @@ public:
      */
     double computeKineticEnergy(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator);
 private:
-    double2 propagateNHChain(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator);
+    std::tuple<double, double, double> propagateNHChain(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator);
     CudaContext& cu;
-    double prevStepSize;
+    double prevStepSize, centerkbT, centerNkbT;
     double2 noseHooverkbT, noseHooverNkbT;
+    int centerDof;
     int2 noseHooverDof;
     CudaArray* normalParticles;
     CudaArray* pairParticles;
+    CudaArray* pairIsCenterParticle;
     CudaArray* kineticEnergies;
     CudaArray* normalKEBuffer;
     CudaArray* realKEBuffer;
@@ -86,6 +88,11 @@ private:
     std::vector<double2> eta;
     std::vector<double2> etaDot;
     std::vector<double2> etaDotDot;
+    std::vector<int>    centerParticles;
+    std::vector<double> etaCenterMass;
+    std::vector<double> etaCenter;
+    std::vector<double> etaCenterDot;
+    std::vector<double> etaCenterDotDot;
     CUfunction kernelVel, kernelPos, hardwallKernel, kernelKE, kernelKESum, kernelChain;
 };
 

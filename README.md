@@ -118,16 +118,22 @@ install the module.  Once you do that, you can use the plugin from your Python s
     from drudenoseplugin import DrudeNoseHooverIntegrator
     integ = DrudeNoseHooverIntegrator(temperature, REALFREQ*picosecond, 1*kelvin, DRUDEFREQ*picosecond, 0.001*picoseconds, 20, CHAINFREQ)
 
+If you wish to use independent temperature group for central atoms in plannar geometry (plannar improper),
+you may add the following lines to your python script to add the central atoms to the integrator.
+
+    improperForce = ''force object that contains only your desired improper torsions''
+        ((  improperForce = [f for f in [system.getForce(i) for i in range(system.getNumForces())] if type(f) == PeriodicTorsionForce][0]  ))
+    for i in range(improperForce.getNumTorsions()):
+        YOUR_INTEGRATOR.addCenterParticle(improperForce.getTorsionParameters(i)[2])
+
+
 
 License
 =======
 
-This is part of the OpenMM molecular simulation toolkit originating from
-Simbios, the NIH National Center for Physics-Based Simulation of
-Biological Structures at Stanford, funded under the NIH Roadmap for
-Medical Research, grant U54 GM072970. See https://simtk.org.
+This is a plugin designed to work with OpenMM molecular simulation toolkit
 
-Portions copyright (c) 2014 Stanford University and the Authors.
+Portions copyright (c) 2017 the Authors.
 
 Authors: Chang Yun Son
 

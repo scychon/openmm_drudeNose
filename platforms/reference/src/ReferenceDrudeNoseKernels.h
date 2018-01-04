@@ -97,20 +97,20 @@ private:
     void propagateHalfVelocity(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator);
     ReferencePlatform::PlatformData& data;
     std::vector<int> normalParticles;
+    std::vector<int> centerParticles;
     std::vector<std::pair<int, int> > pairParticles;
-    std::vector<std::pair<int, int> > centerParticles;
+    std::vector<bool> pairIsCenterParticle;
     std::vector<double> particleMass;
     std::vector<double> particleInvMass;
     std::vector<double> pairInvTotalMass;
     std::vector<double> pairInvReducedMass;
     std::vector<double> centerInvTotalMass;
-    std::vector<double> centerInvReducedMass;
     std::vector<double> etaMass;
     std::vector<double> eta;
     std::vector<double> etaDot;
     std::vector<double> etaDotDot;
-    double realkbT, drudekbT, realNkbT, drudeNkbT, centerRealNkbt, centerDrudeNkbt;
-    int realDof, drudeDof, centerRealDof, centerDrudeDof;
+    double realkbT, drudekbT, realNkbT, drudeNkbT, centerkbT, centerNkbT;
+    int realDof, drudeDof, centerDof, numTempGroup, idxMaxNHChains, iNumNHChains;
 };
 
 

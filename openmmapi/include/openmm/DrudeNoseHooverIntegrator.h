@@ -185,9 +185,9 @@ public:
         numNHChains = numChains;
     }
     /**
-     * Get the number of Nose-Hoover chains (integer)
+     * Get whether to use Nose-Hoover chains or not (integer)
      *
-     * @return the number of Nose-Hoover chains
+     * @return whether to use the Nose-Hoover chains
      */
     int getUseDrudeNHChains() const {
         return useDrudeNHChains;
@@ -200,6 +200,26 @@ public:
     void setUseDrudeNHChains(int numChains) {
         useDrudeNHChains = numChains;
     }
+    /**
+     * Get the number of center particles for which independent temperature group is used.
+     */
+    int getNumCenterParticles() const {
+        return centerParticles.size();
+    }
+    /**
+     * Add a center particle to which independent temperature group shoul be applied.
+     *
+     * @param particle        the index within the System of the center particle
+     * @return the index of the particle that was added
+     */
+    int addCenterParticle(int particle);
+    /**
+     * Get the parameters for a Drude particle.
+     *
+     * @param index                the index of the center particle for which to get parameters
+     * @param[out] particle        the index within the System of the center particle
+     */
+    void getCenterParticle(int index, int& particle) const;
 protected:
     /**
      * This will be called by the Context when it is created.  It informs the Integrator
@@ -228,6 +248,7 @@ private:
     double temperature, couplingTime, drudeTemperature, drudeCouplingTime, maxDrudeDistance;
     int drudeStepsPerRealStep, numNHChains;
     bool useDrudeNHChains;
+    std::vector<int> centerParticles;
     Kernel kernel;
 };
 

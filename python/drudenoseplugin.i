@@ -52,6 +52,8 @@ import simtk.unit as unit
    val=unit.Quantity(val, unit.nanometer)
 %}
 
+%pythonappend OpenMM::DrudeNoseHooverIntegrator::getCenterParticle(int index, int& particle) const %{
+%}
 
 namespace OpenMM {
 
@@ -76,6 +78,13 @@ public:
    void setNumNHChains(int numChains) ;
    int getUseDrudeNHChains() const ;
    void setUseDrudeNHChains(int useDrudeNHChains) ;
+   int getNumCenterParticles() const ;
+   int addCenterParticle(int particle) ;
+
+   %apply int& OUTPUT {int& particle};
+   void getCenterParticle(int index, int& particle) const;
+   %clear int& particle;
+
 };
 
 }

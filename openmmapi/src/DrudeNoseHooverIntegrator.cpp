@@ -32,6 +32,7 @@
 #include "openmm/DrudeNoseHooverIntegrator.h"
 #include "openmm/Context.h"
 #include "openmm/OpenMMException.h"
+#include "openmm/internal/AssertionUtilities.h"
 #include "openmm/internal/ContextImpl.h"
 #include "openmm/DrudeNoseKernels.h"
 #include <ctime>
@@ -52,6 +53,16 @@ DrudeNoseHooverIntegrator::DrudeNoseHooverIntegrator(double temperature, double 
     setNumNHChains(numNHChains);
     setUseDrudeNHChains(useDrudeNHChains);
     setConstraintTolerance(1e-5);
+}
+
+int DrudeNoseHooverIntegrator::addCenterParticle(int particle) {
+    centerParticles.push_back(particle);
+    return centerParticles.size()-1;
+}
+
+void DrudeNoseHooverIntegrator::getCenterParticle(int index, int& particle) const {
+    ASSERT_VALID_INDEX(index, centerParticles);
+    particle = centerParticles[index];
 }
 
 double DrudeNoseHooverIntegrator::getMaxDrudeDistance() const {

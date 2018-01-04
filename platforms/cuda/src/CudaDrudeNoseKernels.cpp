@@ -37,6 +37,7 @@
 #include "CudaForceInfo.h"
 #include "CudaIntegrationUtilities.h"
 #include "SimTKOpenMMRealType.h"
+#include <algorithm>
 #include <set>
 #include <typeinfo>
 #include <iostream>
@@ -53,6 +54,8 @@ CudaIntegrateDrudeNoseHooverStepKernel::~CudaIntegrateDrudeNoseHooverStepKernel(
         delete normalParticles;
     if (pairParticles != NULL)
         delete pairParticles;
+    if (pairIsCenterParticle != NULL)
+        delete pairIsCenterParticle;
     if (kineticEnergies != NULL)
         delete kineticEnergies;
     if (normalKEBuffer != NULL)
@@ -68,6 +71,8 @@ void CudaIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, co
 
     noseHooverDof = make_int2(0, 0);
     noseHooverkbT = make_double2(BOLTZ * integrator.getTemperature(), BOLTZ * integrator.getDrudeTemperature());
+    centerDof = 0;
+    centerkbT = BOLTZ * integrator.getTemperature();
     int   numDrudeSteps = integrator.getDrudeStepsPerRealStep();
 
 
@@ -76,10 +81,17 @@ void CudaIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, co
     set<int> particles;
     vector<int> normalParticleVec;
     vector<int2> pairParticleVec;
+    vector<int> pairIsCenterParticleVec;
     for (int i = 0; i < system.getNumParticles(); i++) {
         particles.insert(i);
         double mass = system.getParticleMass(i);
         noseHooverDof.x += (mass == 0.0 ? 0 : 3);
+    }
+    // center particles use independent Dof and temperature group
+    for (int i=0; i < integrator.getNumCenterParticles(); i++) {
+        int p;
+        integrator.getCenterParticle(i, p);
+        centerParticles.push_back(p);
     }
     for (int i = 0; i < force.getNumParticles(); i++) {
         int p, p1, p2, p3, p4;
@@ -88,16 +100,29 @@ void CudaIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, co
         particles.erase(p);
         particles.erase(p1);
         pairParticleVec.push_back(make_int2(p, p1));
+
+        // check if the particle is center particle
+        if ( ( std::find(centerParticles.begin(), centerParticles.end(), p) != centerParticles.end() ) or ( std::find(centerParticles.begin(), centerParticles.end(), p1) != centerParticles.end() ) ) {
+            pairIsCenterParticleVec.push_back(1);
+            noseHooverDof.x -= 3;
+            centerDof += 3;
+        }
+        else
+            pairIsCenterParticleVec.push_back(0);
+
         noseHooverDof.x -= 3;
         noseHooverDof.y += 3;
     }
     normalParticleVec.insert(normalParticleVec.begin(), particles.begin(), particles.end());
     normalParticles = CudaArray::create<int>(cu, max((int) normalParticleVec.size(), 1), "drudeNormalParticles");
     pairParticles = CudaArray::create<int2>(cu, max((int) pairParticleVec.size(), 1), "drudePairParticles");
+    pairIsCenterParticle = CudaArray::create<int>(cu, max((int) pairIsCenterParticleVec.size(), 1), "drudePairIsCenterParticles");
     if (normalParticleVec.size() > 0)
         normalParticles->upload(normalParticleVec);
     if (pairParticleVec.size() > 0)
         pairParticles->upload(pairParticleVec);
+    if (pairIsCenterParticleVec.size() > 0)
+        pairIsCenterParticle->upload(pairIsCenterParticleVec);
 
     // reduce real d.o.f by number of constraints, and 3 if CMMotion remove is true
     noseHooverDof.x -= system.getNumConstraints();
@@ -117,11 +142,17 @@ void CudaIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, co
     double drudeEtaMass = noseHooverNkbT.y * pow(integrator.getDrudeCouplingTime(), 2);  // internal
     etaMass.push_back(make_double2(realEtaMass, drudeEtaMass));
 
+    // center etaMass
+    centerNkbT = centerDof * centerkbT;
+    double centerEtaMass = centerNkbT * pow(integrator.getCouplingTime(), 2);
+    etaCenterMass.push_back(centerEtaMass);
+
     cout << "Initialization finished\n";
     cout << "real T : " << integrator.getTemperature() << ", drude T : " << integrator.getDrudeTemperature() << "\n";
     cout << "real NkbT : " << noseHooverNkbT.x << ", drude NkbT : " << noseHooverNkbT.y << ", etaMass : " << etaMass[0].x;
     cout << ", drudeQ0 : " << etaMass[0].y << "\n";
     cout << "real Dof : " << noseHooverDof.x << ", drude Dof : " << noseHooverDof.y << "\n";
+    cout << "center Dof : " << centerDof << ", center NkbT : " << centerNkbT << ", etaCenterMass : " << etaCenterMass[0] << "\n";
     cout << "Num NH Chain : " << integrator.getNumNHChains() << "\n";
     cout << "Use NH Chain for Drude dof : " << integrator.getUseDrudeNHChains() << "\n";
     cout << "real couplingTime : " << integrator.getCouplingTime() << "\n";
@@ -148,6 +179,19 @@ void CudaIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, co
     // extra dummy chain which will always have etaDot = 0
     etaDot.push_back(make_double2(0.0,0.0));
 
+    // initiailize center eta values to zero
+    etaCenter.push_back(0.0);
+    etaCenterDot.push_back(0.0);
+    etaCenterDotDot.push_back(0.0);
+    centerEtaMass = centerkbT * pow(integrator.getCouplingTime(), 2);
+    for (int ich=1; ich < integrator.getNumNHChains(); ich++) {
+        etaCenterMass.push_back(centerEtaMass);
+        etaCenter.push_back(0.0);
+        etaCenterDot.push_back(0.0);
+        etaCenterDotDot.push_back(0.0);
+        etaCenterDotDot[ich] = (etaCenterMass[ich-1] * etaCenterDot[ich-1] * etaCenterDot[ich-1] - centerkbT) / etaCenterMass[ich];
+    }
+    etaCenterDot.push_back(0.0);
 
     // Create kernels.
     int elementSize = (cu.getUseDoublePrecision() || cu.getUseMixedPrecision() ? sizeof(double) : sizeof(float));
@@ -191,6 +235,8 @@ void CudaIntegrateDrudeNoseHooverStepKernel::execute(ContextImpl& context, const
     double fscale = 0.5*stepSize/(double) 0x100000000;
     double vscaleDrude = 1.0;
     double fscaleDrude = fscale;
+    double vscaleCenter = 1.0;
+    double fscaleCenter = fscale;
     double vscaleNone = 1.0;
     double fscaleZero = 0.0;
     double vscaleDrudeNone = 1.0;
@@ -215,6 +261,8 @@ void CudaIntegrateDrudeNoseHooverStepKernel::execute(ContextImpl& context, const
     float fscaleFloat = (float) fscale;
     float vscaleDrudeFloat = (float) vscaleDrude;
     float fscaleDrudeFloat = (float) fscaleDrude;
+    float vscaleCenterFloat = (float) vscaleCenter;
+    float fscaleCenterFloat = (float) fscaleCenter;
     float vscaleNoneFloat = (float) vscaleNone;
     float fscaleZeroFloat = (float) fscaleZero;
     float vscaleDrudeNoneFloat = (float) vscaleDrudeNone;
@@ -223,11 +271,14 @@ void CudaIntegrateDrudeNoseHooverStepKernel::execute(ContextImpl& context, const
     float hardwallscaleDrudeFloat = (float) hardwallscaleDrude;
     void *vscalePtr, *fscalePtr, *vscaleDrudePtr, *fscaleDrudePtr, *maxDrudeDistancePtr, *hardwallscaleDrudePtr;
     void *vscaleNonePtr, *fscaleZeroPtr, *vscaleDrudeNonePtr, *fscaleDrudeZeroPtr;
+    void *vscaleCenterPtr, *fscaleCenterPtr;
     if (cu.getUseDoublePrecision() || cu.getUseMixedPrecision()) {
         vscalePtr = &vscale;
         fscalePtr = &fscale;
         vscaleDrudePtr = &vscaleDrude;
         fscaleDrudePtr = &fscaleDrude;
+        vscaleCenterPtr = &vscaleCenter;
+        fscaleCenterPtr = &fscaleCenter;
         vscaleNonePtr = &vscaleNone;
         fscaleZeroPtr = &fscaleZero;
         vscaleDrudeNonePtr = &vscaleDrudeNone;
@@ -240,6 +291,8 @@ void CudaIntegrateDrudeNoseHooverStepKernel::execute(ContextImpl& context, const
         fscalePtr = &fscaleFloat;
         vscaleDrudePtr = &vscaleDrudeFloat;
         fscaleDrudePtr = &fscaleDrudeFloat;
+        vscaleCenterPtr = &vscaleCenterFloat;
+        fscaleCenterPtr = &fscaleCenterFloat;
         vscaleNonePtr = &vscaleNoneFloat;
         fscaleZeroPtr = &fscaleZeroFloat;
         vscaleDrudeNonePtr = &vscaleDrudeNoneFloat;
@@ -249,11 +302,12 @@ void CudaIntegrateDrudeNoseHooverStepKernel::execute(ContextImpl& context, const
     }
 
     // First half of velocity + thermostat integration.
-    double2 vscaleVec = propagateNHChain(context, integrator);
-    vscale = vscaleVec.x;
-    vscaleDrude = vscaleVec.y;
+    tie(vscale, vscaleDrude, vscaleCenter) = propagateNHChain(context, integrator);
+    //vscale = vscaleVec.x;
+    //vscaleDrude = vscaleVec.y;
     vscaleFloat = (float) vscale;
     vscaleDrudeFloat = (float) vscaleDrude;
+    vscaleCenterFloat = (float) vscaleCenter;
 
     //cout << "vscale : " << vscale << ", vscaleDrude : " << vscaleDrude << "\n";
 
@@ -261,8 +315,8 @@ void CudaIntegrateDrudeNoseHooverStepKernel::execute(ContextImpl& context, const
     bool updatePosDelta = false;
     void *updatePosDeltaPtr = &updatePosDelta;
     void* argsChain[] = {&cu.getVelm().getDevicePointer(),
-            &normalParticles->getDevicePointer(), &pairParticles->getDevicePointer(), &integration.getStepSize().getDevicePointer(),
-            vscalePtr, vscaleDrudePtr};
+            &normalParticles->getDevicePointer(), &pairParticles->getDevicePointer(), &pairIsCenterParticle->getDevicePointer(), &integration.getStepSize().getDevicePointer(),
+            vscalePtr, vscaleDrudePtr, vscaleCenterPtr};
     cu.executeKernel(kernelChain, argsChain, numAtoms);
 
     // Call the first half of velocity integration kernel. (both thermostat and actual velocity update)
@@ -306,11 +360,12 @@ void CudaIntegrateDrudeNoseHooverStepKernel::execute(ContextImpl& context, const
     integration.applyVelocityConstraints(integrator.getConstraintTolerance());
 
     // Second half of thermostat integration.
-    vscaleVec = propagateNHChain(context, integrator);
-    vscale = vscaleVec.x;
-    vscaleDrude = vscaleVec.y;
+    tie(vscale, vscaleDrude, vscaleCenter) = propagateNHChain(context, integrator);
+    //vscale = vscaleVec.x;
+    //vscaleDrude = vscaleVec.y;
     vscaleFloat = (float) vscale;
     vscaleDrudeFloat = (float) vscaleDrude;
+    vscaleCenterFloat = (float) vscaleCenter;
 
     // Call the second half of velocity integration kernel. (Nose-Hoover chain thermostat update only)
     cu.executeKernel(kernelChain, argsChain, numAtoms);
@@ -324,7 +379,7 @@ void CudaIntegrateDrudeNoseHooverStepKernel::execute(ContextImpl& context, const
 /* ----------------------------------------------------------------------
    perform half-step update of chain thermostat variables
 ------------------------------------------------------------------------- */
-double2 CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator) {
+std::tuple<double, double, double> CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator) {
     int numAtoms = cu.getNumAtoms();
 
     double stepSize = integrator.getStepSize();
@@ -335,8 +390,9 @@ double2 CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(ContextImpl& co
     double dtc8 = dtc/8.0;
     double vscale = 1.0;
     double vscaleDrude = 1.0;
+    double vscaleCenter = 1.0;
 
-    vector<double> kineticEnergiesVec(2);
+    vector<double> kineticEnergiesVec(3);
 //    timespec t0,t1,t2,t3;
 //    clock_gettime(CLOCK_REALTIME, &t0); // Works on Linux
 //
@@ -362,15 +418,18 @@ double2 CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(ContextImpl& co
     double normalKE = 0.0;
     double realKE = 0.0;
     double drudeKE = 0.0;
+    double centerKE = 0.0;
     vector<Vec3> vel;
     State state;
     state = context.getOwner().getState(State::Velocities);
     vel = state.getVelocities();
     vector<int> normalParticleVec;
     vector<int2> pairParticleVec;
+    vector<int> pairIsCenterParticleVec;
 
     normalParticles->download(normalParticleVec);
     pairParticles->download(pairParticleVec);
+    pairIsCenterParticle->download(pairIsCenterParticleVec);
 
 //    clock_gettime(CLOCK_REALTIME, &t2); // Works on Linux
     // Add kinetic energy of ordinary particles.
@@ -394,7 +453,10 @@ double2 CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(ContextImpl& co
         double mass2fract = m2/totalMass;
         Vec3 cmVel = vel[p1]*mass1fract+vel[p2]*mass2fract;
         Vec3 relVel = vel[p2]-vel[p1];
-        realKE += (cmVel.dot(cmVel))*totalMass;
+        if (pairIsCenterParticleVec[i] > 0)
+            centerKE += (cmVel.dot(cmVel))*totalMass;
+        else
+            realKE += (cmVel.dot(cmVel))*totalMass;
         drudeKE += (relVel.dot(relVel))*reducedMass;
     }
 
@@ -459,8 +521,41 @@ double2 CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(ContextImpl& co
         }
     }
 
+    // Calculate scaling factor for velocities of center particles using multiple Nose-Hoover chain thermostat scheme
+    if (centerDof > 0) {
+        kineticEnergiesVec[2] = centerKE;
+        double expfacCenter = 1.0;
+        etaCenterDotDot[0] = (kineticEnergiesVec[2] - centerNkbT) / etaCenterMass[0];
+        for (int iter = 0; iter < numDrudeSteps; iter++) {
+            for (int i = integrator.getNumNHChains()-1; i >= 0; i--) {
+                expfacCenter = exp(-dtc8 * etaCenterDot[i+1]);
+                etaCenterDot[i] *= expfacCenter;
+                etaCenterDot[i] += etaCenterDotDot[i] * dtc4;
+                etaCenterDot[i] *= expfacCenter;
+            }
+
+            vscaleCenter *= exp(-dtc2 * etaCenterDot[0]);
+            kineticEnergiesVec[2] *= exp(-dtc * etaCenterDot[0]);
+            for (int i = 0; i < integrator.getNumNHChains(); i++) {
+                etaCenter[i] += dtc2 * etaCenterDot[i];
+            }
+
+            etaCenterDotDot[0] = (kineticEnergiesVec[2] - centerNkbT) / etaCenterMass[0];
+
+            for (int i = 0; i < integrator.getNumNHChains(); i++) {
+                expfacCenter = exp(-dtc8 * etaCenterDot[i+1]);
+                etaCenterDot[i] *= expfacCenter;
+                if (i > 0) {
+                    etaCenterDotDot[i] = (etaCenterMass[i-1] * etaCenterDot[i-1] * etaCenterDot[i-1] - centerkbT) / etaCenterMass[i];
+                }
+                etaCenterDot[i] += etaCenterDotDot[i] * dtc4;
+                etaCenterDot[i] *= expfacCenter;
+            }
+        }
+    }
+
 //    cout << "After NHChain real T : " << kineticEnergiesVec[0]/noseHooverDof.x/BOLTZ << ", drude T : " << kineticEnergiesVec[1]/noseHooverDof.y/BOLTZ << "\n";
-    return make_double2(vscale, vscaleDrude);
+    return std::make_tuple(vscale, vscaleDrude, vscaleCenter);
 }
 
 double CudaIntegrateDrudeNoseHooverStepKernel::computeKineticEnergy(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator) {
