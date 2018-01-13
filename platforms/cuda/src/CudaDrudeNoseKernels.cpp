@@ -406,7 +406,6 @@ std::vector<double> CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(Con
 //    cout << "duration : " <<  (t1.tv_nsec - t0.tv_nsec ) << '\n';
 
     vector<Vec3> vel;
-    vector<Vec3> relVel;
     State state;
     state = context.getOwner().getState(State::Velocities);
     vel = state.getVelocities();
