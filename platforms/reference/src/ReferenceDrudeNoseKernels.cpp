@@ -104,10 +104,8 @@ ReferenceIntegrateDrudeNoseHooverStepKernel::~ReferenceIntegrateDrudeNoseHooverS
 void ReferenceIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, const DrudeNoseHooverIntegrator& integrator, const DrudeForce& force) {
     realDof = 0;
     drudeDof = 0;
-    centerDof = 0;
     realkbT = BOLTZ * integrator.getTemperature();
     drudekbT = BOLTZ * integrator.getDrudeTemperature();
-    centerkbT = BOLTZ * integrator.getTemperature();
 
     
     // Identify particle pairs and ordinary particles.
@@ -120,12 +118,6 @@ void ReferenceIntegrateDrudeNoseHooverStepKernel::initialize(const System& syste
         particleInvMass.push_back(mass == 0.0 ? 0.0 : 1.0/mass);
         realDof += (mass == 0.0 ? 0 : 3);
     }
-    // center particles use independent Dof and temperature group
-    for (int i=0; i < integrator.getNumCenterParticles(); i++) {
-        int p;
-        integrator.getCenterParticle(i, p);
-        centerParticles.push_back(p);
-    }
     for (int i = 0; i < force.getNumParticles(); i++) {
         int p, p1, p2, p3, p4;
         double charge, polarizability, aniso12, aniso34;
@@ -133,15 +125,6 @@ void ReferenceIntegrateDrudeNoseHooverStepKernel::initialize(const System& syste
         particles.erase(p);
         particles.erase(p1);
         pairParticles.push_back(make_pair(p, p1));
-
-        // check if the particle is center particle
-        if ( ( std::find(centerParticles.begin(), centerParticles.end(), p) != centerParticles.end() ) or ( std::find(centerParticles.begin(), centerParticles.end(), p1) != centerParticles.end() ) ) {
-            pairIsCenterParticle.push_back(true);
-            realDof -= 3;
-            centerDof += 3;
-        }
-        else
-            pairIsCenterParticle.push_back(false);
 
         double m1 = system.getParticleMass(p);
         double m2 = system.getParticleMass(p1);
@@ -154,15 +137,9 @@ void ReferenceIntegrateDrudeNoseHooverStepKernel::initialize(const System& syste
     normalParticles.insert(normalParticles.begin(), particles.begin(), particles.end());
 
     if (integrator.getUseDrudeNHChains()) {
-        if (centerDof > 0)
-            numTempGroup = 3;
-        else
             numTempGroup = 2;
     }
     else {
-        if (centerDof > 0)
-            numTempGroup = 2;
-        else
             numTempGroup = 1;
     }
             
@@ -190,15 +167,14 @@ void ReferenceIntegrateDrudeNoseHooverStepKernel::initialize(const System& syste
     // calculate etaMass and etaMass
     realNkbT = realDof * realkbT;
     drudeNkbT = drudeDof * drudekbT;
-    centerNkbT = centerDof * centerkbT;
     etaMass.push_back(realNkbT * pow(integrator.getCouplingTime(), 2));             // COM
     etaMass.push_back(drudeNkbT * pow(integrator.getDrudeCouplingTime(), 2));       // internal
 
     cout << "Initialization finished\n";
     cout << "real T : " << integrator.getTemperature() << ", drude T : " << integrator.getDrudeTemperature() << "\n";
-    cout << "realNkbT : " << realNkbT << ", drudeNkbT : " << drudeNkbT << ", centerNkbT : " << centerNkbT << "\n";
+    cout << "realNkbT : " << realNkbT << ", drudeNkbT : " << drudeNkbT << "\n";
     cout << "etaMass : " << etaMass[0] << ", drudeQ0 : " << etaMass[1] << "\n";
-    cout << "realDof : " << realDof << ", centerDof : " << centerDof << ", drudeDof : " << drudeDof << "\n";
+    cout << "realDof : " << realDof << ", drudeDof : " << drudeDof << "\n";
     cout << "Num NH Chain : " << integrator.getNumNHChains() << "\n";
     cout << "real couplingTime : " << integrator.getCouplingTime() << "\n";
     cout << "drude couplingTime : " << integrator.getDrudeCouplingTime() << "\n";
@@ -213,15 +189,6 @@ void ReferenceIntegrateDrudeNoseHooverStepKernel::initialize(const System& syste
     etaDot.push_back(0.0);      // internal
     etaDotDot.push_back(0.0);   // COM
     etaDotDot.push_back(0.0);   // internal
-    // Improper temperature group
-    if (centerDof > 0) {
-        etaMass.push_back(centerNkbT * pow(integrator.getCouplingTime(), 2));           // center
-        cout << "There's center particles !!\n  centerMass : " << etaMass[2] << "\n";
-        eta.push_back(0.0);         // center
-        etaDot.push_back(0.0);      // center
-        etaDotDot.push_back(0.0);   // center
-        numTempGroup = 3;
-    }
     if (integrator.getUseDrudeNHChains()) {
         for (int ich=1; ich < integrator.getNumNHChains(); ich++) {
             etaMass.push_back(realkbT * pow(integrator.getCouplingTime(), 2));        // COM
@@ -234,14 +201,6 @@ void ReferenceIntegrateDrudeNoseHooverStepKernel::initialize(const System& syste
             etaDotDot.push_back(0.0);       // internal
             etaDotDot[ich*numTempGroup] = (etaMass[(ich-1)*numTempGroup] * etaDot[(ich-1)*numTempGroup] * etaDot[(ich-1)*numTempGroup] - realkbT) / etaMass[ich*numTempGroup];
             etaDotDot[ich*numTempGroup+1] = (etaMass[(ich-1)*numTempGroup+1] * etaDot[(ich-1)*numTempGroup+1] * etaDot[(ich-1)*numTempGroup+1] - drudekbT) / etaMass[ich*numTempGroup+1];
-            // Improper temperature group
-            if (centerDof > 0) {
-                etaMass.push_back(centerkbT * pow(integrator.getCouplingTime(), 2));           // center
-                eta.push_back(0.0);         // center
-                etaDot.push_back(0.0);      // center
-                etaDotDot.push_back(0.0);   // center
-                etaDotDot[ich*numTempGroup+2] = (etaMass[(ich-1)*numTempGroup+2] * etaDot[(ich-1)*numTempGroup+2] * etaDot[(ich-1)*numTempGroup+2] - centerkbT) / etaMass[ich*numTempGroup+2];
-            }
         }
     }
     else {
@@ -251,27 +210,12 @@ void ReferenceIntegrateDrudeNoseHooverStepKernel::initialize(const System& syste
             etaDot.push_back(0.0);          // COM
             etaDotDot.push_back(0.0);       // COM
             etaDotDot[ich*numTempGroup+1] = (etaMass[(ich-1)*numTempGroup+1] * etaDot[(ich-1)*numTempGroup+1] * etaDot[(ich-1)*numTempGroup+1] - realkbT) / etaMass[ich*numTempGroup+1];
-            // Improper temperature group
-            if (centerDof > 0) {
-                etaMass.push_back(centerkbT * pow(integrator.getCouplingTime(), 2));           // center
-                eta.push_back(0.0);         // center
-                etaDot.push_back(0.0);      // center
-                etaDotDot.push_back(0.0);   // center
-                etaDotDot[ich*numTempGroup+2] = (etaMass[(ich-1)*numTempGroup+2] * etaDot[(ich-1)*numTempGroup+2] * etaDot[(ich-1)*numTempGroup+2] - realkbT) / etaMass[ich*numTempGroup+2];
-            }
         }
     }
     // extra dummy chain which will always have etaDot = 0
     etaDot.push_back(0.0);          // COM
     etaDot.push_back(0.0);          // internal
-    // Improper temperature group
-    if (centerDof > 0) {
-        etaDot.push_back(0.0);          // center
-        cout << "realMass1 : " << etaMass[3] << ", drudeQ1 : " << etaMass[4] << ", centerMass1 : " << etaMass[5] << "\n";
-    }
-    else {
         cout << "realMass1 : " << etaMass[2] << ", drudeQ1 : " << etaMass[3] << "\n";
-    }
 }
 
 void ReferenceIntegrateDrudeNoseHooverStepKernel::execute(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator) {
@@ -494,7 +438,6 @@ void ReferenceIntegrateDrudeNoseHooverStepKernel::propagateNHChain(ContextImpl& 
     // computeNHKineticEnergy(context);
     double realKE = 0.0;
     double drudeKE = 0.0;
-    double centerKE = 0.0;
 
     // Add kinetic energy of ordinary particles.
     for (int i = 0; i < (int) normalParticles.size(); i++) {
@@ -512,10 +455,7 @@ void ReferenceIntegrateDrudeNoseHooverStepKernel::propagateNHChain(ContextImpl& 
         RealOpenMM mass2fract = pairInvTotalMass[i]/particleInvMass[p2];
         RealVec cmVel = vel[p1]*mass1fract+vel[p2]*mass2fract;
         RealVec relVel = vel[p2]-vel[p1];
-        if (pairIsCenterParticle[i])
-            centerKE += (cmVel.dot(cmVel))/pairInvTotalMass[i];
-        else
-            realKE += (cmVel.dot(cmVel))/pairInvTotalMass[i];
+        realKE += (cmVel.dot(cmVel))/pairInvTotalMass[i];
         drudeKE += (relVel.dot(relVel))/pairInvReducedMass[i];
     }
 
@@ -526,13 +466,10 @@ void ReferenceIntegrateDrudeNoseHooverStepKernel::propagateNHChain(ContextImpl& 
     // Calculate scaling factor for velocities using multiple Nose-Hoover chain thermostat scheme
     RealOpenMM scaleReal = 1.0;
     RealOpenMM scaleDrude = 1.0;
-    RealOpenMM scaleCenter = 1.0;
     RealOpenMM scaleCM = 1.0;
     RealOpenMM expfac = 1.0;
     etaDotDot[0] = (realKE - realNkbT) / etaMass[0];
     etaDotDot[1] = (drudeKE - drudeNkbT) / etaMass[1];
-    if (centerDof > 0)
-        etaDotDot[2] = (centerKE - centerNkbT) / etaMass[2];
 
     for (int iter = 0; iter < numDrudeSteps; iter++) {
 
@@ -553,11 +490,6 @@ void ReferenceIntegrateDrudeNoseHooverStepKernel::propagateNHChain(ContextImpl& 
 
         etaDotDot[0] = (realKE - realNkbT) / etaMass[0];
         etaDotDot[1] = (drudeKE - drudeNkbT) / etaMass[1];
-        if (centerDof > 0) {
-            scaleCenter *= exp(-dtc2 * etaDot[2]);
-            centerKE *= exp(-dtc * etaDot[2]);
-            etaDotDot[2] = (centerKE - centerNkbT) / etaMass[2];
-        }
 
         for (int i = 0; i < iNumNHChains; i++) {
             expfac = exp(-dtc8 * etaDot[i+2]);
@@ -599,10 +531,7 @@ void ReferenceIntegrateDrudeNoseHooverStepKernel::propagateNHChain(ContextImpl& 
         RealOpenMM mass2fract = pairInvTotalMass[i]/particleInvMass[p2];
         RealVec cmVel = vel[p1]*mass1fract+vel[p2]*mass2fract;
         RealVec relVel = vel[p2]-vel[p1];
-        if ( pairIsCenterParticle[i] )
-            scaleCM = scaleCenter;
-        else
-            scaleCM = scaleReal;
+        scaleCM = scaleReal;
         for (int j = 0; j < 3; j++) {
             cmVel[j] = scaleCM*cmVel[j];
             relVel[j] = scaleDrude*relVel[j];

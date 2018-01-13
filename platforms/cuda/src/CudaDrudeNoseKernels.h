@@ -71,28 +71,28 @@ public:
      */
     double computeKineticEnergy(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator);
 private:
-    std::tuple<double, double, double> propagateNHChain(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator);
+    std::vector<double> propagateNHChain(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator);
+    void assignVscaleFactors();
     CudaContext& cu;
-    double prevStepSize, centerkbT, centerNkbT;
-    double2 noseHooverkbT, noseHooverNkbT;
-    int centerDof;
-    int2 noseHooverDof;
+    double prevStepSize, drudekbT, drudeNkbT, realkbT;
+    int drudeDof;
     CudaArray* normalParticles;
     CudaArray* pairParticles;
-    CudaArray* pairIsCenterParticle;
+    CudaArray* vscaleFactors;
     CudaArray* kineticEnergies;
     CudaArray* normalKEBuffer;
     CudaArray* realKEBuffer;
     CudaArray* drudeKEBuffer;
-    std::vector<double2> etaMass;
-    std::vector<double2> eta;
-    std::vector<double2> etaDot;
-    std::vector<double2> etaDotDot;
-    std::vector<int>    centerParticles;
-    std::vector<double> etaCenterMass;
-    std::vector<double> etaCenter;
-    std::vector<double> etaCenterDot;
-    std::vector<double> etaCenterDotDot;
+    std::vector<std::vector<double> > etaMass;
+    std::vector<std::vector<double> > eta;
+    std::vector<std::vector<double> > etaDot;
+    std::vector<std::vector<double> > etaDotDot;
+    std::vector<int>    tempGroupDof;
+    std::vector<int>    particleTempGroupVec;
+    std::vector<int>    normalParticleVec;
+    std::vector<int2>   pairParticleVec;
+    std::vector<double>    tempGroupNkbT;
+    std::vector<double>    tempGroupVscaleFactors;
     CUfunction kernelVel, kernelPos, hardwallKernel, kernelKE, kernelKESum, kernelChain;
 };
 

@@ -78,12 +78,14 @@ public:
    void setNumNHChains(int numChains) ;
    int getUseDrudeNHChains() const ;
    void setUseDrudeNHChains(int useDrudeNHChains) ;
-   int getNumCenterParticles() const ;
-   int addCenterParticle(int particle) ;
+   int getNumTempGroups() const ;
+   int addTempGroup() ;
+   int addParticleTempGroup(int tempGroup) ;
+   void setParticleTempGroup(int particle, int tempGroup) ;
 
-   %apply int& OUTPUT {int& particle};
-   void getCenterParticle(int index, int& particle) const;
-   %clear int& particle;
+   %apply int& OUTPUT {int& tempGroup};
+   void getParticleTempGroup(int particle, int& tempGroup) const;
+   %clear int& tempGroup;
 
 };
 

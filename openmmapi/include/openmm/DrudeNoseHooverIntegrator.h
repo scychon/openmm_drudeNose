@@ -201,25 +201,41 @@ public:
         useDrudeNHChains = numChains;
     }
     /**
-     * Get the number of center particles for which independent temperature group is used.
+     * Get the number of temperature groups for particles which independent thermal bath is used.
+     * @return the number of temperature groups for real d.o.f
      */
-    int getNumCenterParticles() const {
-        return centerParticles.size();
+    int getNumTempGroups() const {
+        return tempGroups.size();
     }
     /**
-     * Add a center particle to which independent temperature group shoul be applied.
+     * Add a new temperature group
      *
-     * @param particle        the index within the System of the center particle
+     * @return the index of the new temparature group that was added
+     */
+    int addTempGroup();
+    /**
+     * Add the temperature group of a particle to the last index of particleTempGroup.
+     * Drude particles and particles within constraint should be assigned to the same temp group
+     *
+     * @param tempGroup       the index of temperature group to be assigned for the last particle
      * @return the index of the particle that was added
      */
-    int addCenterParticle(int particle);
+    int addParticleTempGroup(int tempGroup);
     /**
-     * Get the parameters for a Drude particle.
+     * Set the temperature group of a particle.
+     * Drude particles and particles within constraint should be assigned to the same temp group
      *
-     * @param index                the index of the center particle for which to get parameters
-     * @param[out] particle        the index within the System of the center particle
+     * @param particle        the index within the System of the particle
+     * @param tempGroup       the index of temperature group for the partile to be assigned
      */
-    void getCenterParticle(int index, int& particle) const;
+    void setParticleTempGroup(int particle, int tempGroup);
+    /**
+     * Get the temperature group of a real particle.
+     *
+     * @param particle              the index of the particle for which to get parameters
+     * @param[out] tempGroup        the index of the temperature group to which the particle is assigned
+     */
+    void getParticleTempGroup(int particle, int& tempGroup) const;
 protected:
     /**
      * This will be called by the Context when it is created.  It informs the Integrator
@@ -246,9 +262,10 @@ protected:
     double computeKineticEnergy();
 private:
     double temperature, couplingTime, drudeTemperature, drudeCouplingTime, maxDrudeDistance;
-    int drudeStepsPerRealStep, numNHChains;
+    int drudeStepsPerRealStep, numNHChains, numTempGroups;
     bool useDrudeNHChains;
-    std::vector<int> centerParticles;
+    std::vector<int> particleTempGroup;
+    std::vector<int> tempGroups;
     Kernel kernel;
 };
 

@@ -55,14 +55,26 @@ DrudeNoseHooverIntegrator::DrudeNoseHooverIntegrator(double temperature, double 
     setConstraintTolerance(1e-5);
 }
 
-int DrudeNoseHooverIntegrator::addCenterParticle(int particle) {
-    centerParticles.push_back(particle);
-    return centerParticles.size()-1;
+int DrudeNoseHooverIntegrator::addTempGroup() {
+    tempGroups.push_back(tempGroups.size());
+    return tempGroups.size()-1;
 }
 
-void DrudeNoseHooverIntegrator::getCenterParticle(int index, int& particle) const {
-    ASSERT_VALID_INDEX(index, centerParticles);
-    particle = centerParticles[index];
+int DrudeNoseHooverIntegrator::addParticleTempGroup(int tempGroup) {
+    ASSERT_VALID_INDEX(tempGroup, tempGroups);
+    particleTempGroup.push_back(tempGroup);
+    return particleTempGroup.size()-1;
+}
+
+void DrudeNoseHooverIntegrator::setParticleTempGroup(int particle, int tempGroup) {
+    ASSERT_VALID_INDEX(particle, particleTempGroup);
+    ASSERT_VALID_INDEX(tempGroup, tempGroups);
+    particleTempGroup[particle] = tempGroup;
+}
+
+void DrudeNoseHooverIntegrator::getParticleTempGroup(int particle, int& tempGroup) const {
+    ASSERT_VALID_INDEX(particle, particleTempGroup);
+    tempGroup = particleTempGroup[particle];
 }
 
 double DrudeNoseHooverIntegrator::getMaxDrudeDistance() const {
@@ -89,6 +101,17 @@ void DrudeNoseHooverIntegrator::initialize(ContextImpl& contextRef) {
         }
     if (force == NULL)
         throw OpenMMException("The System does not contain a DrudeForce");
+
+    // If particleTempGroup is not assigned, assign all to single temperature group
+    if (particleTempGroup.size() == 0) {
+        if (tempGroups.size() == 0)
+            tempGroups.push_back(0);
+        for (int i = 0; i < system.getNumParticles(); i++)
+            particleTempGroup.push_back(0);
+    }
+    else if (particleTempGroup.size() != system.getNumParticles())
+        throw OpenMMException("Number of particles assigned with temperature groups does not match the number of system particles");
+ 
     context = &contextRef;
     owner = &contextRef.getOwner();
     kernel = context->getPlatform().createKernel(IntegrateDrudeNoseHooverStepKernel::Name(), contextRef);

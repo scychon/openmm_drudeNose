@@ -80,12 +80,13 @@ extern "C" __global__ void sumDrudeKineticEnergies(mixed* __restrict__ normalKE,
  */
 
 extern "C" __global__ void integrateDrudeNoseHooverChain(mixed4* __restrict__ velm,
-        const int* __restrict__ normalParticles, const int2* __restrict__ pairParticles, const bool* __restrict__ pairIsCenterParticle, const mixed2* __restrict__ dt, mixed vscale,
-        mixed vscaleDrude, mixed vscaleCenter) {
+        const int* __restrict__ normalParticles, const int2* __restrict__ pairParticles, const mixed* __restrict__ vscaleFactors, const mixed2* __restrict__ dt,
+        mixed vscaleDrude) {
     // Update normal particles.
     for (int i = blockIdx.x*blockDim.x+threadIdx.x; i < NUM_NORMAL_PARTICLES; i += blockDim.x*gridDim.x) {
         int index = normalParticles[i];
         mixed4 velocity = velm[index];
+        mixed vscale = vscaleFactors[index];
         if (velocity.w != 0) {
             velocity.x = vscale*velocity.x;
             velocity.y = vscale*velocity.y;
@@ -98,9 +99,7 @@ extern "C" __global__ void integrateDrudeNoseHooverChain(mixed4* __restrict__ ve
     
     for (int i = blockIdx.x*blockDim.x+threadIdx.x; i < NUM_PAIRS; i += blockDim.x*gridDim.x) {
         int2 particles = pairParticles[i];
-        mixed vscaleCM = vscale;
-        if ( pairIsCenterParticle[i] )
-            vscaleCM = vscaleCenter;
+        mixed vscaleCM = vscaleFactors[particles.x];
         mixed4 velocity1 = velm[particles.x];
         mixed4 velocity2 = velm[particles.y];
         mixed mass1 = RECIP(velocity1.w);
