@@ -45,7 +45,7 @@ namespace OpenMM {
 class CudaIntegrateDrudeNoseHooverStepKernel : public IntegrateDrudeNoseHooverStepKernel {
 public:
     CudaIntegrateDrudeNoseHooverStepKernel(std::string name, const Platform& platform, CudaContext& cu) :
-            IntegrateDrudeNoseHooverStepKernel(name, platform), cu(cu), normalParticles(NULL), pairParticles(NULL), kineticEnergies(NULL), normalKEBuffer(NULL), realKEBuffer(NULL), drudeKEBuffer(NULL) {
+            IntegrateDrudeNoseHooverStepKernel(name, platform), cu(cu), normalParticles(NULL), pairParticles(NULL), vscaleFactors(NULL), particleResId(NULL), particlesInResidues(NULL), comVelm(NULL), normVelm(NULL), kineticEnergies(NULL) {
     }
     ~CudaIntegrateDrudeNoseHooverStepKernel();
     /**
@@ -75,25 +75,30 @@ private:
     void assignVscaleFactors();
     CudaContext& cu;
     double prevStepSize, drudekbT, drudeNkbT, realkbT;
-    int drudeDof;
+    int drudeDof, numResidues, numParticles;
     CudaArray* normalParticles;
     CudaArray* pairParticles;
     CudaArray* vscaleFactors;
+    CudaArray* particleResId;
+    CudaArray* particleTempGroup;
+    CudaArray* particlesInResidues;
+    CudaArray* comVelm;
+    CudaArray* normVelm;
     CudaArray* kineticEnergies;
-    CudaArray* normalKEBuffer;
-    CudaArray* realKEBuffer;
-    CudaArray* drudeKEBuffer;
     std::vector<std::vector<double> > etaMass;
     std::vector<std::vector<double> > eta;
     std::vector<std::vector<double> > etaDot;
     std::vector<std::vector<double> > etaDotDot;
     std::vector<int>    tempGroupDof;
+    std::vector<int>    particleResIdVec;
+    std::vector<int2>   particlesInResiduesVec;
     std::vector<int>    particleTempGroupVec;
     std::vector<int>    normalParticleVec;
     std::vector<int2>   pairParticleVec;
     std::vector<double>    tempGroupNkbT;
     std::vector<double>    tempGroupVscaleFactors;
-    CUfunction kernelVel, kernelPos, hardwallKernel, kernelKE, kernelKESum, kernelChain;
+    std::vector<double>    vscaleFactorsVec;
+    CUfunction kernelVel, kernelPos, hardwallKernel, kernelKE, kernelKESum, kernelChain, kernelNormVel, kernelCOMVel;
 };
 
 } // namespace OpenMM

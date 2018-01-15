@@ -236,6 +236,27 @@ public:
      * @param[out] tempGroup        the index of the temperature group to which the particle is assigned
      */
     void getParticleTempGroup(int particle, int& tempGroup) const;
+    /**
+     * Get the number of residues in the system
+     * @return the number of residues in the system
+     */
+    int getNumResidues() const {
+        return residueMasses.size();
+    }
+    /**
+     * Get the inverse mass of a residue with residue index
+     *
+     * @param resid                 the index of the residue for which to get parameters
+     * return resMass               the mass of the residue with index resid
+     */
+    double getResInvMass(int resid) const;
+    /**
+     * Get the residue id of a particle with particle index
+     *
+     * @param particle              the index of the particle for which to get parameters
+     * return resid                 the index of the residue of the particle with index particle
+     */
+    int getParticleResId(int particle) const;
 protected:
     /**
      * This will be called by the Context when it is created.  It informs the Integrator
@@ -266,6 +287,9 @@ private:
     bool useDrudeNHChains;
     std::vector<int> particleTempGroup;
     std::vector<int> tempGroups;
+    std::vector<int> particleResId;
+    std::vector<double> residueMasses;
+    std::vector<double> residueInvMasses;
     Kernel kernel;
 };
 

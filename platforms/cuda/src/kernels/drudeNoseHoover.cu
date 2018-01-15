@@ -76,21 +76,76 @@ extern "C" __global__ void sumDrudeKineticEnergies(mixed* __restrict__ normalKE,
 }
 
 /**
+ * Calculate the center of mass velocities of each residues and get relative velocities of each particles
+ */
+
+extern "C" __global__ void calcCOMVelocities(const mixed4* __restrict__ velm,
+        const int2* __restrict__ particlesInResidues, mixed4* __restrict__ comVelm) {
+
+    // Get COM velocities
+    for (int i = blockIdx.x*blockDim.x+threadIdx.x; i < NUM_RESIDUES; i += blockDim.x*gridDim.x) {
+        comVelm[i] = make_mixed4(0,0,0,0);
+        mixed comMass = 0.0;
+        for (int j = 0; j < particlesInResidues[i].x; j++) {
+            int index = particlesInResidues[i].y + j;
+            mixed4 velocity = velm[index];
+            if (velocity.w != 0) {
+                mixed mass = RECIP(velocity.w);
+                comVelm[i].x += velocity.x * mass;
+                comVelm[i].y += velocity.y * mass;
+                comVelm[i].z += velocity.z * mass;
+                comMass += mass;
+            }
+        }
+        comVelm[i].w = RECIP(comMass);
+        comVelm[i].x *= comVelm[i].w;
+        comVelm[i].y *= comVelm[i].w;
+        comVelm[i].z *= comVelm[i].w;
+        //if (i==0)
+        //    printf("residue %d has %d particles and starts at %d and vel %f,%f,%f and mass is %f \n",i,particlesInResidues[i].x,particlesInResidues[i].y, comVelm[i].x,comVelm[i].y,comVelm[i].z, RECIP(comVelm[i].w));
+    }
+
+}
+
+/**
+ * Calculate the center of mass velocities of each residues and get relative velocities of each particles
+ */
+
+extern "C" __global__ void normalizeVelocities(const mixed4* __restrict__ velm, const int* __restrict__ particleResId,
+        const mixed4* __restrict__ comVelm, mixed4* __restrict__ normVelm) {
+
+    // Get Normalized velocities
+    for (int i = blockIdx.x*blockDim.x+threadIdx.x; i < NUM_ATOMS; i += blockDim.x*gridDim.x) {
+        normVelm[i] = make_mixed4(0,0,0,0);
+        int resid = particleResId[i];
+        normVelm[i].x = velm[i].x - comVelm[resid].x;
+        normVelm[i].y = velm[i].y - comVelm[resid].y;
+        normVelm[i].z = velm[i].z - comVelm[resid].z;
+        normVelm[i].w = velm[i].w;
+        //if (i==0)
+        //    printf("Particle : %d, Norm Velocity : %f, velocity : %f, comVel : %f, mass : %f  \n", i,normVelm[i].x, velm[i].x, comVelm[resid].x, RECIP(normVelm[i].w));
+    }
+}
+
+/**
  * Perform the velocity update of NoseHoover Chain integration.
  */
 
-extern "C" __global__ void integrateDrudeNoseHooverChain(mixed4* __restrict__ velm,
-        const int* __restrict__ normalParticles, const int2* __restrict__ pairParticles, const mixed* __restrict__ vscaleFactors, const mixed2* __restrict__ dt,
-        mixed vscaleDrude) {
+extern "C" __global__ void integrateDrudeNoseHooverChain(mixed4* __restrict__ velm, const mixed4* __restrict__ normVelm,
+        const int* __restrict__ normalParticles, const int2* __restrict__ pairParticles, const int* __restrict__ particleTempGroup, const mixed* __restrict__ vscaleFactors) {
+
+    mixed vscaleCOM = vscaleFactors[NUM_TEMP_GROUPS];
+    mixed vscaleDrude = vscaleFactors[NUM_TEMP_GROUPS+1];
     // Update normal particles.
     for (int i = blockIdx.x*blockDim.x+threadIdx.x; i < NUM_NORMAL_PARTICLES; i += blockDim.x*gridDim.x) {
         int index = normalParticles[i];
         mixed4 velocity = velm[index];
-        mixed vscale = vscaleFactors[index];
+        mixed4 velRel = normVelm[index];
+        mixed vscale = vscaleFactors[particleTempGroup[index]];
         if (velocity.w != 0) {
-            velocity.x = vscale*velocity.x;
-            velocity.y = vscale*velocity.y;
-            velocity.z = vscale*velocity.z;
+            velocity.x = vscale*velRel.x + vscaleCOM*(velocity.x-velRel.x);
+            velocity.y = vscale*velRel.y + vscaleCOM*(velocity.y-velRel.y);
+            velocity.z = vscale*velRel.z + vscaleCOM*(velocity.z-velRel.z);
             velm[index] = velocity;
         }
     }
@@ -99,28 +154,32 @@ extern "C" __global__ void integrateDrudeNoseHooverChain(mixed4* __restrict__ ve
     
     for (int i = blockIdx.x*blockDim.x+threadIdx.x; i < NUM_PAIRS; i += blockDim.x*gridDim.x) {
         int2 particles = pairParticles[i];
-        mixed vscaleCM = vscaleFactors[particles.x];
+        mixed vscaleCM = vscaleFactors[particleTempGroup[particles.x]];
         mixed4 velocity1 = velm[particles.x];
         mixed4 velocity2 = velm[particles.y];
+        mixed4 velRel1 = normVelm[particles.x];
+        mixed4 velRel2 = normVelm[particles.y];
+        mixed4 velCOM1 = velocity1 - velRel1;
+        mixed4 velCOM2 = velocity2 - velRel2;
         mixed mass1 = RECIP(velocity1.w);
         mixed mass2 = RECIP(velocity2.w);
         mixed invTotalMass = RECIP(mass1+mass2);
         mixed mass1fract = invTotalMass*mass1;
         mixed mass2fract = invTotalMass*mass2;
-        mixed4 cmVel = velocity1*mass1fract+velocity2*mass2fract;
-        mixed4 relVel = velocity2-velocity1;
+        mixed4 cmVel = velRel1*mass1fract+velRel2*mass2fract;
+        mixed4 relVel = velRel2-velRel1;
         cmVel.x = vscaleCM*cmVel.x;
         cmVel.y = vscaleCM*cmVel.y;
         cmVel.z = vscaleCM*cmVel.z;
         relVel.x = vscaleDrude*relVel.x;
         relVel.y = vscaleDrude*relVel.y;
         relVel.z = vscaleDrude*relVel.z;
-        velocity1.x = cmVel.x-relVel.x*mass2fract;
-        velocity1.y = cmVel.y-relVel.y*mass2fract;
-        velocity1.z = cmVel.z-relVel.z*mass2fract;
-        velocity2.x = cmVel.x+relVel.x*mass1fract;
-        velocity2.y = cmVel.y+relVel.y*mass1fract;
-        velocity2.z = cmVel.z+relVel.z*mass1fract;
+        velocity1.x = cmVel.x-relVel.x*mass2fract + vscaleCOM*velCOM1.x;
+        velocity1.y = cmVel.y-relVel.y*mass2fract + vscaleCOM*velCOM1.y;
+        velocity1.z = cmVel.z-relVel.z*mass2fract + vscaleCOM*velCOM1.z;
+        velocity2.x = cmVel.x+relVel.x*mass1fract + vscaleCOM*velCOM2.x;
+        velocity2.y = cmVel.y+relVel.y*mass1fract + vscaleCOM*velCOM2.y;
+        velocity2.z = cmVel.z+relVel.z*mass1fract + vscaleCOM*velCOM2.z;
         velm[particles.x] = velocity1;
         velm[particles.y] = velocity2;
     }

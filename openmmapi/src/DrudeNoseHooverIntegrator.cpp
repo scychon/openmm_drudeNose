@@ -37,6 +37,7 @@
 #include "openmm/DrudeNoseKernels.h"
 #include <ctime>
 #include <string>
+#include <iostream>
 
 using namespace OpenMM;
 using std::string;
@@ -77,6 +78,16 @@ void DrudeNoseHooverIntegrator::getParticleTempGroup(int particle, int& tempGrou
     tempGroup = particleTempGroup[particle];
 }
 
+double DrudeNoseHooverIntegrator::getResInvMass(int resid) const {
+    ASSERT_VALID_INDEX(resid, residueInvMasses);
+    return residueInvMasses[resid];
+}
+
+int DrudeNoseHooverIntegrator::getParticleResId(int particle) const {
+    ASSERT_VALID_INDEX(particle, particleResId);
+    return particleResId[particle];
+}
+
 double DrudeNoseHooverIntegrator::getMaxDrudeDistance() const {
     return maxDrudeDistance;
 }
@@ -111,7 +122,27 @@ void DrudeNoseHooverIntegrator::initialize(ContextImpl& contextRef) {
     }
     else if (particleTempGroup.size() != system.getNumParticles())
         throw OpenMMException("Number of particles assigned with temperature groups does not match the number of system particles");
+
+    particleResId = std::vector<int>(system.getNumParticles(), -1);
+    std::vector<std::vector<int> > molecules = contextRef.getMolecules();
+    std::cout << "num molecules : " << (int) molecules.size() << "\n";
+    int numResidues = (int) molecules.size();
+    for (int i = 0; i < numResidues; i++)
+        for (int j = 0; j < (int) molecules[i].size(); j++)
+            particleResId[molecules[i][j]] = i;
+
+    std::cout << "particleResId assigned ! \n";
+
+    residueMasses = std::vector<double>(numResidues, 0.0);
+    for (int i = 0; i < system.getNumParticles(); i++)
+        residueMasses[particleResId[i]] += system.getParticleMass(i);
+
+    std::cout << "residue Masses assigned ! \n";
+
+    for (int i = 0; i < numResidues; i++)
+        residueInvMasses.push_back(1.0/residueMasses[i]);
  
+    std::cout << "residue inverse Masses assigned ! \n";
     context = &contextRef;
     owner = &contextRef.getOwner();
     kernel = context->getPlatform().createKernel(IntegrateDrudeNoseHooverStepKernel::Name(), contextRef);
