@@ -188,16 +188,14 @@ void CudaIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, co
     tempGroupDof[numTempGroups] = 3*integrator.getNumResidues();
     tempGroupDof[numTempGroups+1] = drudeDof;
 
-    /* Ignore CM motion removal, which is small relative to the large d.o.f. for condensed phase
+    // Don't Ignore CM motion removal, which is small relative to the large d.o.f. for condensed phase
     for (int i = 0; i < system.getNumForces(); i++) {
-        cout << typeid(system.getForce(i)).name() << "\n";
         if (typeid(system.getForce(i)) == typeid(CMMotionRemover)) {
             cout << "CMMotion removal found, reduce dof by 3\n";
-            noseHooverDof.x -= 3;
+            tempGroupDof[numTempGroups] -= 3;
             break;
         }
     }
-    */
 
     // calculate etaMass
     drudeNkbT = drudeDof * drudekbT;
@@ -454,21 +452,15 @@ std::vector<double> CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(Con
             &particlesInResidues->getDevicePointer(), &comVelm->getDevicePointer()};
 
     cu.executeKernel(kernelCOMVel, argsCOMVel, numResidues);
-    //cout <<  "kernelCOMVel executed ! \n";
     vector<double4> comVelmVec(numResidues);
     comVelm->download(comVelmVec);
-    //comVelm->download(cu.getPinnedBuffer());
-    //double4* comVelmVec = (double4*) cu.getPinnedBuffer();
 
     void* argsNormVel[] = {&cu.getVelm().getDevicePointer(), &particleResId->getDevicePointer(),
             &comVelm->getDevicePointer(), &normVelm->getDevicePointer()};
 
     cu.executeKernel(kernelNormVel, argsNormVel, numAtoms);
-    //cout <<  "kernelNormVel executed ! \n";
     vector<double4> normVelmVec(numAtoms);
     normVelm->download(normVelmVec);
-    //normVelm->download(cu.getPinnedBuffer());
-    //double4* normVelmVec = (double4*) cu.getPinnedBuffer();
 
 
 //    for (int i = 0; i < context.getSystem().getNumParticles(); i++) {
@@ -479,8 +471,6 @@ std::vector<double> CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(Con
     for (int i = 0; i < numResidues; i++) {
         Vec3 molVel = Vec3(comVelmVec[i].x,comVelmVec[i].y,comVelmVec[i].z);
         kineticEnergiesVec[numTempGroups] += (molVel.dot(molVel))/comVelmVec[i].w;
-        //cout << "molvel : " << comVelmVec[i].x << " " << comVelmVec[i].y << " " << comVelmVec[i].z << "\n";
-        //cout << "KECOM : " << kineticEnergiesVec[numTempGroups] << ", KECOM[" << i << "] : " << (molVel.dot(molVel))/comVelmVec[i].w << "\n";
     }
     //cout << "KECOM : " << kineticEnergiesVec[numTempGroups] << "\n";
 //    for (int i = 0; i < context.getSystem().getNumParticles(); i++) {
