@@ -627,5 +627,11 @@ std::vector<double> CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(Con
 }
 
 double CudaIntegrateDrudeNoseHooverStepKernel::computeKineticEnergy(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator) {
-    return cu.getIntegrationUtilities().computeKineticEnergy(0.5*integrator.getStepSize());
+    int    numTempGroups = integrator.getNumTempGroups();
+    double bathKineticEnergy = 0.0;
+    for (int itg = 0; itg < numTempGroups+2; itg++) {
+        if (etaMass[itg][0] > 0)
+            bathKineticEnergy += etaDot[itg][0]*etaDot[itg][0] * etaMass[itg][0] * 0.5;
+    }
+    return cu.getIntegrationUtilities().computeKineticEnergy(0.5*integrator.getStepSize())+bathKineticEnergy;
 }
