@@ -84,6 +84,7 @@ private:
     CudaArray* particlesInResidues;
     CudaArray* comVelm;
     CudaArray* normVelm;
+    CudaArray* kineticEnergyBuffer;
     CudaArray* kineticEnergies;
     std::vector<std::vector<double> > etaMass;
     std::vector<std::vector<double> > eta;

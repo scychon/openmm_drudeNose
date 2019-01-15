@@ -11,7 +11,7 @@ extern "C" __global__ void computeDrudeNoseHooverKineticEnergies(mixed4* __restr
         int index = normalParticles[i];
         mixed4 velocity = velm[index];
         if (velocity.w != 0) {
-            normalKE[i] = velocity.x*velocity.x + velocity.y*velocity.y + velocity.z*velocity.z;
+            normalKE[i] = (velocity.x*velocity.x + velocity.y*velocity.y + velocity.z*velocity.z)/velocity.w;
         }
         else
             normalKE[i] = 0;
@@ -126,6 +126,116 @@ extern "C" __global__ void normalizeVelocities(const mixed4* __restrict__ velm, 
         //    printf("Particle : %d, Norm Velocity : %f, velocity : %f, comVel : %f, mass : %f  \n", i,normVelm[i].x, velm[i].x, comVelm[resid].x, RECIP(normVelm[i].w));
     }
 }
+/**
+ * Calculate the kinetic energies of each degree of freedom.
+ */
+
+extern "C" __global__ void computeNormalizedKineticEnergies(const mixed4* __restrict__ comVelm,
+        const mixed4* __restrict__ normVelm, const int* __restrict__ particleTempGroup,
+        const int* __restrict__ normalParticles, const int2* __restrict__ pairParticles,
+        double* __restrict__ kineticEnergyBuffer) {
+
+    unsigned int tid = blockIdx.x*blockDim.x+threadIdx.x;
+    for (int i=0; i < NUM_TEMP_GROUPS+2; i++)
+        kineticEnergyBuffer[tid*(NUM_TEMP_GROUPS+2)+i] = 0;
+
+    //double comKE = 0;
+    //double realKE[NUM_TEMP_GROUPS] = {0};
+    //double drudeKE = 0;
+
+    // Add kinetic energy of ordinary particles.
+    for (int i = blockIdx.x*blockDim.x+threadIdx.x; i < NUM_RESIDUES; i += blockDim.x*gridDim.x) {
+        mixed4 velocity = comVelm[i];
+        kineticEnergyBuffer[tid*(NUM_TEMP_GROUPS+2)+NUM_TEMP_GROUPS] += (velocity.x*velocity.x + velocity.y*velocity.y + velocity.z*velocity.z)/velocity.w;
+        //comKE += (velocity.x*velocity.x + velocity.y*velocity.y + velocity.z*velocity.z)/velocity.w;
+        //printf("i %d, comKE %f, tid %u, vx %f, vy %f, vz %f, vw %f, calc %f \n",i,comKE,tid,velocity.x,velocity.y,velocity.z,velocity.w,(velocity.x*velocity.x + velocity.y*velocity.y + velocity.z*velocity.z)/velocity.w);
+        
+    }
+
+    // Add kinetic energy of ordinary particles.
+    for (int i = blockIdx.x*blockDim.x+threadIdx.x; i < NUM_NORMAL_PARTICLES; i += blockDim.x*gridDim.x) {
+        int index = normalParticles[i];
+        mixed4 velocity = normVelm[index];
+        if (velocity.w != 0) {
+            kineticEnergyBuffer[tid*(NUM_TEMP_GROUPS+2)+particleTempGroup[index]] += (velocity.x*velocity.x + velocity.y*velocity.y + velocity.z*velocity.z)/velocity.w;
+        //    realKE[particleTempGroup[index]] += (velocity.x*velocity.x + velocity.y*velocity.y + velocity.z*velocity.z)/velocity.w;
+        }
+    }
+
+    // Add kinetic energy of Drude particle pairs.
+    for (int i = blockIdx.x*blockDim.x+threadIdx.x; i < NUM_PAIRS; i += blockDim.x*gridDim.x) {
+        int2 particles = pairParticles[i];
+        mixed4 velocity1 = normVelm[particles.x];
+        mixed4 velocity2 = normVelm[particles.y];
+        mixed mass1 = RECIP(velocity1.w);
+        mixed mass2 = RECIP(velocity2.w);
+        mixed invTotalMass = RECIP(mass1+mass2);
+        mixed invReducedMass = (mass1+mass2)*velocity1.w*velocity2.w;
+        mixed mass1fract = invTotalMass*mass1;
+        mixed mass2fract = invTotalMass*mass2;
+        mixed4 cmVel = velocity1*mass1fract+velocity2*mass2fract;
+        mixed4 relVel = velocity2-velocity1;
+
+        kineticEnergyBuffer[tid*(NUM_TEMP_GROUPS+2)+particleTempGroup[particles.x]] += (cmVel.x*cmVel.x + cmVel.y*cmVel.y + cmVel.z*cmVel.z)*(mass1+mass2);
+        kineticEnergyBuffer[tid*(NUM_TEMP_GROUPS+2)+NUM_TEMP_GROUPS+1] += (relVel.x*relVel.x + relVel.y*relVel.y + relVel.z*relVel.z)*RECIP(invReducedMass);
+        //realKE[particleTempGroup[particles.x]] += (cmVel.x*cmVel.x + cmVel.y*cmVel.y + cmVel.z*cmVel.z)*(mass1+mass2);
+        //drudeKE += (relVel.x*relVel.x + relVel.y*relVel.y + relVel.z*relVel.z)*RECIP(invReducedMass);
+    }
+    __syncthreads();
+
+//    for (int i=0; i < NUM_TEMP_GROUPS; i++)
+//        kineticEnergyBuffer[tid*(NUM_TEMP_GROUPS+2)+i] = realKE[i];
+//    kineticEnergyBuffer[tid*(NUM_TEMP_GROUPS+2)+NUM_TEMP_GROUPS] = comKE;
+//    kineticEnergyBuffer[tid*(NUM_TEMP_GROUPS+2)+NUM_TEMP_GROUPS+1] = drudeKE;
+//    __syncthreads();
+//    if (tid==0) {
+//        printf("comKE %f, realKE %f, drude %f tid %u \n",comKE,realKE[0],drudeKE,tid);
+//        printf("blockdim %d griddim %d num_temp_group %d buffersize %d comKE %f, realKE %f, drude %f tid %u \n",blockDim.x,gridDim.x,NUM_TEMP_GROUPS+2,int(*(&kineticEnergyBuffer+1)-kineticEnergyBuffer),comKE,realKE[0],drudeKE,tid);
+//    }
+}
+
+extern "C" __global__ void sumNormalizedKineticEnergies(double* __restrict__ kineticEnergyBuffer, double* __restrict__ kineticEnergies, int bufferSize) {
+    // Sum the threads in this group.
+    __shared__ double temp[WORK_GROUP_SIZE*(NUM_TEMP_GROUPS+2)];
+    unsigned int tid = threadIdx.x;
+
+    for (unsigned int i=0; i < NUM_TEMP_GROUPS+2; i++)
+        temp[WORK_GROUP_SIZE*i+tid] = 0;
+    __syncthreads();
+
+    for (unsigned int index = tid*(NUM_TEMP_GROUPS+2); index < bufferSize; index += blockDim.x*(NUM_TEMP_GROUPS+2)) {
+        for (unsigned int i=0; i < NUM_TEMP_GROUPS+2; i++)
+            temp[WORK_GROUP_SIZE*i+tid] += kineticEnergyBuffer[index + i];
+    }
+    __syncthreads();
+    if (tid < 32) {
+        for (unsigned int i=0; i < NUM_TEMP_GROUPS+2; i+=1) temp[WORK_GROUP_SIZE*i+tid] += temp[WORK_GROUP_SIZE*i+tid+32];
+        __syncthreads();
+        if (tid < 16) {
+            for (unsigned int i=0; i < NUM_TEMP_GROUPS+2; i+=1) temp[WORK_GROUP_SIZE*i+tid] += temp[WORK_GROUP_SIZE*i+tid+16];
+        }
+        __syncthreads();
+        if (tid < 8) {
+            for (unsigned int i=0; i < NUM_TEMP_GROUPS+2; i+=1) temp[WORK_GROUP_SIZE*i+tid] += temp[WORK_GROUP_SIZE*i+tid+8];
+        }
+        __syncthreads();
+        if (tid < 4) {
+            for (unsigned int i=0; i < NUM_TEMP_GROUPS+2; i+=1) temp[WORK_GROUP_SIZE*i+tid] += temp[WORK_GROUP_SIZE*i+tid+4];
+        }
+        __syncthreads();
+        if (tid < 2) {
+            for (unsigned int i=0; i < NUM_TEMP_GROUPS+2; i+=1) temp[WORK_GROUP_SIZE*i+tid] += temp[WORK_GROUP_SIZE*i+tid+2];
+        }
+        __syncthreads();
+    }
+    __syncthreads();
+    if (tid == 0) {
+        for (unsigned int i=0; i < NUM_TEMP_GROUPS+2; i++) {
+            kineticEnergies[i] = temp[WORK_GROUP_SIZE*i]+temp[WORK_GROUP_SIZE*i+1];
+        }
+    }
+}
+
 
 /**
  * Perform the velocity update of NoseHoover Chain integration.
