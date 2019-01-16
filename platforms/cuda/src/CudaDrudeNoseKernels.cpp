@@ -200,11 +200,13 @@ void CudaIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, co
     tempGroupDof[numTempGroups+1] = drudeDof;
 
     // Don't Ignore CM motion removal, which is small relative to the large d.o.f. for condensed phase
-    for (int i = 0; i < system.getNumForces(); i++) {
-        if (typeid(system.getForce(i)) == typeid(CMMotionRemover)) {
-            cout << "CMMotion removal found, reduce dof by 3\n";
-            tempGroupDof[numTempGroups] -= 3;
-            break;
+    if (integrator.getUseCOMTempGroup()) {
+        for (int i = 0; i < system.getNumForces(); i++) {
+            if (typeid(system.getForce(i)) == typeid(CMMotionRemover)) {
+                cout << "CMMotion removal found, reduce dof by 3\n";
+                tempGroupDof[numTempGroups] -= 3;
+                break;
+            }
         }
     }
 
@@ -275,7 +277,7 @@ void CudaIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, co
     kernelPos = cu.getKernel(module, "integrateDrudeNoseHooverPositions");
     hardwallKernel = cu.getKernel(module, "applyHardWallConstraints");
     prevStepSize = -1.0;
-    cout << "Cuda Modules are created\n";
+    cout << "Cuda Modules are created\n" << flush;
 }
 
 void CudaIntegrateDrudeNoseHooverStepKernel::execute(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator) {
@@ -545,7 +547,9 @@ std::vector<double> CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(Con
     // Calculate scaling factor for velocities using multiple Nose-Hoover chain thermostat scheme
     vector<double> expfac(numTempGroups+2, 1.0);
     for (int itg = 0; itg < numTempGroups+1; itg++) {
-        etaDotDot[itg][0] = (kineticEnergiesVec[itg] - tempGroupNkbT[itg]) / etaMass[itg][0];
+        if (etaMass[itg][0]>0) {
+            etaDotDot[itg][0] = (kineticEnergiesVec[itg] - tempGroupNkbT[itg]) / etaMass[itg][0];
+        }
         //cout << "itg : " << itg << ", etaDotDot : " << etaDotDot[itg][0] << ", etaDot : " << etaDot[itg][0] << "\n";
         for (int iter = 0; iter < numDrudeSteps; iter++) {
             for (int i = integrator.getNumNHChains()-1; i >= 0; i--) {
@@ -561,7 +565,9 @@ std::vector<double> CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(Con
                 eta[itg][i] += dtc2 * etaDot[itg][i];
             }
 
-            etaDotDot[itg][0] = (kineticEnergiesVec[itg] - tempGroupNkbT[itg]) / etaMass[itg][0];
+            if (etaMass[itg][0]>0) {
+                etaDotDot[itg][0] = (kineticEnergiesVec[itg] - tempGroupNkbT[itg]) / etaMass[itg][0];
+            }
 
             etaDot[itg][0] *= expfac[itg];
             etaDot[itg][0] += etaDotDot[itg][0] * dtc4;
