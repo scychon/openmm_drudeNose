@@ -43,7 +43,7 @@ using namespace OpenMM;
 using std::string;
 using std::vector;
 
-DrudeNoseHooverIntegrator::DrudeNoseHooverIntegrator(double temperature, double couplingTime, double drudeTemperature, double drudeCouplingTime, double stepSize, int drudeStepsPerRealStep, int numNHChains, bool useDrudeNHChains) {
+DrudeNoseHooverIntegrator::DrudeNoseHooverIntegrator(double temperature, double couplingTime, double drudeTemperature, double drudeCouplingTime, double stepSize, int drudeStepsPerRealStep, int numNHChains, bool useDrudeNHChains, bool useCOMTempGroup) {
     setTemperature(temperature);
     setCouplingTime(couplingTime);
     setDrudeTemperature(drudeTemperature);
@@ -53,6 +53,7 @@ DrudeNoseHooverIntegrator::DrudeNoseHooverIntegrator(double temperature, double 
     setDrudeStepsPerRealStep(drudeStepsPerRealStep);
     setNumNHChains(numNHChains);
     setUseDrudeNHChains(useDrudeNHChains);
+    setUseCOMTempGroup(useCOMTempGroup);
     setConstraintTolerance(1e-5);
 }
 

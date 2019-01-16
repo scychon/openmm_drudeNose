@@ -80,11 +80,12 @@ extern "C" __global__ void sumDrudeKineticEnergies(mixed* __restrict__ normalKE,
  */
 
 extern "C" __global__ void calcCOMVelocities(const mixed4* __restrict__ velm,
-        const int2* __restrict__ particlesInResidues, mixed4* __restrict__ comVelm) {
+        const int2* __restrict__ particlesInResidues, mixed4* __restrict__ comVelm, bool useCOMTempGroup) {
 
     // Get COM velocities
     for (int i = blockIdx.x*blockDim.x+threadIdx.x; i < NUM_RESIDUES; i += blockDim.x*gridDim.x) {
         comVelm[i] = make_mixed4(0,0,0,0);
+        if (useCOMTempGroup) {
         mixed comMass = 0.0;
         for (int j = 0; j < particlesInResidues[i].x; j++) {
             int index = particlesInResidues[i].y + j;
@@ -101,6 +102,10 @@ extern "C" __global__ void calcCOMVelocities(const mixed4* __restrict__ velm,
         comVelm[i].x *= comVelm[i].w;
         comVelm[i].y *= comVelm[i].w;
         comVelm[i].z *= comVelm[i].w;
+        }
+        else {
+            comVelm[i].w = 1.0;
+        }
         //if (i==0)
         //    printf("residue %d has %d particles and starts at %d and vel %f,%f,%f and mass is %f \n",i,particlesInResidues[i].x,particlesInResidues[i].y, comVelm[i].x,comVelm[i].y,comVelm[i].z, RECIP(comVelm[i].w));
     }

@@ -454,8 +454,10 @@ std::vector<double> CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(Con
 //    cout << "kineticEnergiesVec : " << kineticEnergiesVec[0] << ", " << kineticEnergiesVec[1] << "\n";
 //    cout << "Before NHChain real T : " << kineticEnergiesVec[0]/noseHooverDof.x/BOLTZ << ", drude T : " << kineticEnergiesVec[1]/noseHooverDof.y/BOLTZ << "\n";
 
+    bool useCOMGroup = integrator.getUseCOMTempGroup();
+    void *useCOMTempGroupPtr = &useCOMGroup;
     void* argsCOMVel[] = {&cu.getVelm().getDevicePointer(),
-            &particlesInResidues->getDevicePointer(), &comVelm->getDevicePointer()};
+            &particlesInResidues->getDevicePointer(), &comVelm->getDevicePointer(),&useCOMTempGroupPtr};
 
     cu.executeKernel(kernelCOMVel, argsCOMVel, numResidues);
 

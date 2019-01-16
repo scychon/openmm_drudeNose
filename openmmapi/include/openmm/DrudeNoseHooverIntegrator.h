@@ -67,7 +67,7 @@ public:
      * @param numNHChains    the number of Nose-Hoover chains (integer)
      * @param useDrudeNHChains    whether to use the NH-Chain for the drude d.o.f. (bool)
      */
-    DrudeNoseHooverIntegrator(double temperature, double couplingTime, double drudeTemperature, double drudeCouplingTime, double stepSize, int drudeStepsPerRealStep=20, int numNHChains=1, bool useDrudeNHChains=true);
+    DrudeNoseHooverIntegrator(double temperature, double couplingTime, double drudeTemperature, double drudeCouplingTime, double stepSize, int drudeStepsPerRealStep=20, int numNHChains=1, bool useDrudeNHChains=true, bool useCOMTempGroup=true);
     /**
      * Get the temperature of the main heat bath (in Kelvin).
      *
@@ -193,6 +193,22 @@ public:
         return useDrudeNHChains;
     }
     /**
+     * Set whether to use COM Temperature group or not (one should always use COM temp group)
+     *
+     * @param useCOMGroup    boolean, whether to use COM temperature group or not
+     */
+    void setUseCOMTempGroup(int useCOMGroup) {
+        useCOMTempGroup = useCOMGroup;
+    }
+    /**
+     * Get whether to use COM Temperature group or not (one should always use COM temp group)
+     *
+     * @return whether to use COM Temperature group
+     */
+    int getUseCOMTempGroup() const {
+        return useCOMTempGroup;
+    }
+    /**
      * Set the number of Nose-Hoover chains (integer)
      *
      * @param numChains    the number of Nose-Hoover chains
@@ -284,7 +300,7 @@ protected:
 private:
     double temperature, couplingTime, drudeTemperature, drudeCouplingTime, maxDrudeDistance;
     int drudeStepsPerRealStep, numNHChains, numTempGroups;
-    bool useDrudeNHChains;
+    bool useDrudeNHChains,useCOMTempGroup;
     std::vector<int> particleTempGroup;
     std::vector<int> tempGroups;
     std::vector<int> particleResId;

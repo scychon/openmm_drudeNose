@@ -59,7 +59,7 @@ namespace OpenMM {
 
 class DrudeNoseHooverIntegrator : public Integrator {
 public:
-   DrudeNoseHooverIntegrator(double temperature, double couplingTime, double drudeTemperature, double drudeCouplingTime, double stepSize, int drudeStepsPerRealStep=20, int numNHChains=1, int useDrudeNHChains=True) ;
+   DrudeNoseHooverIntegrator(double temperature, double couplingTime, double drudeTemperature, double drudeCouplingTime, double stepSize, int drudeStepsPerRealStep=20, int numNHChains=1, int useDrudeNHChains=True, int useCOMTempGroup=True) ;
 
    double getTemperature() const ;
    void setTemperature(double temp) ;
@@ -78,6 +78,8 @@ public:
    void setNumNHChains(int numChains) ;
    int getUseDrudeNHChains() const ;
    void setUseDrudeNHChains(int useDrudeNHChains) ;
+   int getUseCOMTempGroup() const ;
+   void setUseCOMTempGroup(int useCOMTempGroup) ;
    int getNumTempGroups() const ;
    int addTempGroup() ;
    int addParticleTempGroup(int tempGroup) ;
