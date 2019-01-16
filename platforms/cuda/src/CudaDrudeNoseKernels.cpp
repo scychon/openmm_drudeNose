@@ -235,6 +235,7 @@ void CudaIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, co
     cout << "drude NkbT : " << drudeNkbT << "drudeQ0 : " << etaMass[itg][0] << ", drude Dof : " << tempGroupDof[itg] << "\n";
     cout << "Num NH Chain : " << integrator.getNumNHChains() << "\n";
     cout << "Use NH Chain for Drude dof : " << integrator.getUseDrudeNHChains() << "\n";
+    cout << "Use COM Temperature group : " << integrator.getUseCOMTempGroup() << "\n";
     cout << "real couplingTime : " << integrator.getCouplingTime() << "\n";
     cout << "drude couplingTime : " << integrator.getDrudeCouplingTime() << "\n";
 //    cout << "pair Particles[0].x : " << pairParticleVec[0].x << "\n";
@@ -457,7 +458,7 @@ std::vector<double> CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(Con
     bool useCOMGroup = integrator.getUseCOMTempGroup();
     void *useCOMTempGroupPtr = &useCOMGroup;
     void* argsCOMVel[] = {&cu.getVelm().getDevicePointer(),
-            &particlesInResidues->getDevicePointer(), &comVelm->getDevicePointer(),&useCOMTempGroupPtr};
+            &particlesInResidues->getDevicePointer(), &comVelm->getDevicePointer(),useCOMTempGroupPtr};
 
     cu.executeKernel(kernelCOMVel, argsCOMVel, numResidues);
 

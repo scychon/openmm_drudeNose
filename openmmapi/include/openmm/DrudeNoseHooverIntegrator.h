@@ -66,6 +66,7 @@ public:
      * @param drudeStepsPerRealStep the number of steps with which to integrator the drude particles per single step (integer)
      * @param numNHChains    the number of Nose-Hoover chains (integer)
      * @param useDrudeNHChains    whether to use the NH-Chain for the drude d.o.f. (bool)
+     * @param useCOMTempGroup    whether to use the NH-Chain for the drude d.o.f. (bool)
      */
     DrudeNoseHooverIntegrator(double temperature, double couplingTime, double drudeTemperature, double drudeCouplingTime, double stepSize, int drudeStepsPerRealStep=20, int numNHChains=1, bool useDrudeNHChains=true, bool useCOMTempGroup=true);
     /**
@@ -205,7 +206,7 @@ public:
      *
      * @return whether to use COM Temperature group
      */
-    int getUseCOMTempGroup() const {
+    bool getUseCOMTempGroup() const {
         return useCOMTempGroup;
     }
     /**
