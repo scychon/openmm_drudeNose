@@ -126,7 +126,9 @@ void CudaIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, co
         double resInvMass = integrator.getResInvMass(resid);
         if (mass != 0.0) {
             tempGroupDof[tg] += 3;
-            tempGroupRedMass[tg] += 3 * mass * resInvMass;
+            if (integrator.getUseCOMTempGroup()) {
+                tempGroupRedMass[tg] += 3 * mass * resInvMass;
+            }
         }
     }
     for (int i = 0; i < force.getNumParticles(); i++) {
@@ -191,7 +193,10 @@ void CudaIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, co
 
         tempGroupDof[tg] -= 1;
     }
-    tempGroupDof[numTempGroups] = 3*integrator.getNumResidues();
+    if (integrator.getUseCOMTempGroup()) {
+        tempGroupDof[numTempGroups] = 3*integrator.getNumResidues();
+    }
+
     tempGroupDof[numTempGroups+1] = drudeDof;
 
     // Don't Ignore CM motion removal, which is small relative to the large d.o.f. for condensed phase
