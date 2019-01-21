@@ -340,7 +340,10 @@ void CudaIntegrateDrudeNoseHooverStepKernel::execute(ContextImpl& context, const
     //cout << "vscaleDrude at NHChain : " << vscaleDrude << "\n";
 
     //cout << "vscale : " << vscale << ", vscaleDrude : " << vscaleDrude << "\n";
-
+    if (cu.getAtomsWereReordered()) {
+        //cout << "#Atoms reordered ! recalculate Force ! \n" << flush;
+        context.calcForcesAndEnergy(true, false);
+    }
 
     bool updatePosDelta = false;
     void *updatePosDeltaPtr = &updatePosDelta;
@@ -641,5 +644,6 @@ std::vector<double> CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(Con
 }
 
 double CudaIntegrateDrudeNoseHooverStepKernel::computeKineticEnergy(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator) {
-    return cu.getIntegrationUtilities().computeKineticEnergy(0.5*integrator.getStepSize());
+    return cu.getIntegrationUtilities().computeKineticEnergy(0);
+    //return cu.getIntegrationUtilities().computeKineticEnergy(0.5*integrator.getStepSize());
 }
