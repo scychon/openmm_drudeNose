@@ -105,6 +105,7 @@ void DrudeNoseHooverIntegrator::initialize(ContextImpl& contextRef) {
         throw OpenMMException("This Integrator is already bound to a context");
     const DrudeForce* force = NULL;
     const System& system = contextRef.getSystem();
+    isKESumValid = false;
     hasBarostat = false;
     for (int i = 0; i < system.getNumForces(); i++) {
         if (dynamic_cast<const DrudeForce*>(&system.getForce(i)) != NULL) {
@@ -163,6 +164,7 @@ void DrudeNoseHooverIntegrator::cleanup() {
 }
 
 void DrudeNoseHooverIntegrator::stateChanged(State::DataType changed) {
+    isKESumValid = false;
     if (context != NULL)
         context->calcForcesAndEnergy(true, false);
 }
@@ -174,7 +176,7 @@ vector<string> DrudeNoseHooverIntegrator::getKernelNames() {
 }
 
 double DrudeNoseHooverIntegrator::computeKineticEnergy() {
-    return kernel.getAs<IntegrateDrudeNoseHooverStepKernel>().computeKineticEnergy(*context, *this);
+    return kernel.getAs<IntegrateDrudeNoseHooverStepKernel>().computeKineticEnergy(*context, *this, isKESumValid);
 }
 
 void DrudeNoseHooverIntegrator::step(int steps) {
@@ -196,5 +198,6 @@ void DrudeNoseHooverIntegrator::step(int steps) {
             context->updateContextState();
         }
         kernel.getAs<IntegrateDrudeNoseHooverStepKernel>().execute(*context, *this);
+        isKESumValid = true;
     }
 }

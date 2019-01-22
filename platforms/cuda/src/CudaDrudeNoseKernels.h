@@ -66,15 +66,16 @@ public:
     /**
      * Compute the kinetic energy.
      * 
-     * @param context     the context in which to execute this kernel
-     * @param integrator  the DrudeNoseHooverIntegrator this kernel is being used for
+     * @param context       the context in which to execute this kernel
+     * @param integrator    the DrudeNoseHooverIntegrator this kernel is being used for
+     * @param isKESumValid  whether use saved KESum or calculate based on new velocities
      */
-    double computeKineticEnergy(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator);
+    double computeKineticEnergy(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator, bool isKESumValid);
 private:
     std::vector<double> propagateNHChain(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator);
     void assignVscaleFactors();
     CudaContext& cu;
-    double prevStepSize, drudekbT, drudeNkbT, realkbT;
+    double prevStepSize, drudekbT, drudeNkbT, realkbT, KESum;
     int drudeDof, numResidues, numParticles;
     CudaArray* normalParticles;
     CudaArray* pairParticles;

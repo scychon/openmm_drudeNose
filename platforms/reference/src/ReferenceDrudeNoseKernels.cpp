@@ -583,6 +583,6 @@ void ReferenceIntegrateDrudeNoseHooverStepKernel::propagateHalfVelocity(ContextI
     }
 }
 
-double ReferenceIntegrateDrudeNoseHooverStepKernel::computeKineticEnergy(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator) {
+double ReferenceIntegrateDrudeNoseHooverStepKernel::computeKineticEnergy(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator, bool isKESumValid) {
     return computeShiftedKineticEnergy(context, particleInvMass, 0.5*integrator.getStepSize());
 }

@@ -70,7 +70,7 @@ public:
     /**
      * Compute the kinetic energy.
      */
-    virtual double computeKineticEnergy(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator) = 0;
+    virtual double computeKineticEnergy(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator, bool isKESumValid) = 0;
 };
 
 } // namespace OpenMM

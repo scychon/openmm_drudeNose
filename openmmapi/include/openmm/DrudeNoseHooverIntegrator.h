@@ -301,7 +301,7 @@ protected:
 private:
     double temperature, couplingTime, drudeTemperature, drudeCouplingTime, maxDrudeDistance;
     int drudeStepsPerRealStep, numNHChains, numTempGroups;
-    bool useDrudeNHChains,useCOMTempGroup,hasBarostat;
+    bool useDrudeNHChains,useCOMTempGroup,hasBarostat,isKESumValid;
     std::vector<int> particleTempGroup;
     std::vector<int> tempGroups;
     std::vector<int> particleResId;

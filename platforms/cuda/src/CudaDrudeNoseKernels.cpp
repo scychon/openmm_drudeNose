@@ -75,6 +75,7 @@ CudaIntegrateDrudeNoseHooverStepKernel::~CudaIntegrateDrudeNoseHooverStepKernel(
 void CudaIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, const DrudeNoseHooverIntegrator& integrator, const DrudeForce& force) {
     cu.getPlatformData().initializeContexts(system);
 
+    KESum = 0.0;
     drudeDof = 0;
     drudekbT = BOLTZ * integrator.getDrudeTemperature();
     realkbT = BOLTZ * integrator.getTemperature();
@@ -488,6 +489,13 @@ std::vector<double> CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(Con
 
     kineticEnergies->download(kineticEnergiesVec);
 
+    // save kinetic energy to the KESum
+    KESum = 0.0;
+    for (int i =0; i < (int) kineticEnergiesVec.size(); i++) {
+        KESum += kineticEnergiesVec[i];
+    }
+    KESum = 0.5*KESum;
+
 //    vector<double4> comVelmVec(numResidues);
 //    comVelm->download(comVelmVec);
 //    vector<double4> normVelmVec(numAtoms);
@@ -643,7 +651,11 @@ std::vector<double> CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(Con
 //std::make_tuple(vscale, vscaleDrude, vscaleCenter);
 }
 
-double CudaIntegrateDrudeNoseHooverStepKernel::computeKineticEnergy(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator) {
-    return cu.getIntegrationUtilities().computeKineticEnergy(0);
+double CudaIntegrateDrudeNoseHooverStepKernel::computeKineticEnergy(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator, bool isKESumValid) {
+    if (! isKESumValid)
+        KESum = cu.getIntegrationUtilities().computeKineticEnergy(0);
+
+    return KESum;  
+    //return cu.getIntegrationUtilities().computeKineticEnergy(0);
     //return cu.getIntegrationUtilities().computeKineticEnergy(0.5*integrator.getStepSize());
 }
