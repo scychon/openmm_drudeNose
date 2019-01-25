@@ -38,6 +38,7 @@
 #include <ctime>
 #include <string>
 #include <iostream>
+#include <typeinfo>
 
 using namespace OpenMM;
 using std::string;
@@ -104,13 +105,21 @@ void DrudeNoseHooverIntegrator::initialize(ContextImpl& contextRef) {
         throw OpenMMException("This Integrator is already bound to a context");
     const DrudeForce* force = NULL;
     const System& system = contextRef.getSystem();
-    for (int i = 0; i < system.getNumForces(); i++)
+    isKESumValid = false;
+    hasBarostat = false;
+    for (int i = 0; i < system.getNumForces(); i++) {
         if (dynamic_cast<const DrudeForce*>(&system.getForce(i)) != NULL) {
             if (force == NULL)
                 force = dynamic_cast<const DrudeForce*>(&system.getForce(i));
             else
                 throw OpenMMException("The System contains multiple DrudeForces");
         }
+        std::string str(typeid(system.getForce(i)).name());
+        if (str.find("Baro") != std::string::npos) {
+            std::cout << typeid(system.getForce(i)).name() << "force group name\n";
+            hasBarostat = true;
+        }
+    }
     if (force == NULL)
         throw OpenMMException("The System does not contain a DrudeForce");
 
@@ -155,6 +164,7 @@ void DrudeNoseHooverIntegrator::cleanup() {
 }
 
 void DrudeNoseHooverIntegrator::stateChanged(State::DataType changed) {
+    isKESumValid = false;
     if (context != NULL)
         context->calcForcesAndEnergy(true, false);
 }
@@ -166,14 +176,28 @@ vector<string> DrudeNoseHooverIntegrator::getKernelNames() {
 }
 
 double DrudeNoseHooverIntegrator::computeKineticEnergy() {
-    return kernel.getAs<IntegrateDrudeNoseHooverStepKernel>().computeKineticEnergy(*context, *this);
+    return kernel.getAs<IntegrateDrudeNoseHooverStepKernel>().computeKineticEnergy(*context, *this, isKESumValid);
 }
 
 void DrudeNoseHooverIntegrator::step(int steps) {
     if (context == NULL)
         throw OpenMMException("This Integrator is not bound to a context!");    
     for (int i = 0; i < steps; ++i) {
-        context->updateContextState();
+        if (hasBarostat) {
+            Vec3 initialBox[3];
+            context->getPeriodicBoxVectors(initialBox[0], initialBox[1], initialBox[2]);
+            context->updateContextState();
+            Vec3 finalBox[3];
+            context->getPeriodicBoxVectors(finalBox[0], finalBox[1], finalBox[2]);
+            if (initialBox[0] != finalBox[0] || initialBox[1] != finalBox[1] || initialBox[2] != finalBox[2]) {
+                //std::cout << "#Box has changed ! recalculate force\n" << std::flush;
+                context->calcForcesAndEnergy(true, false);
+            }
+        }
+        else {
+            context->updateContextState();
+        }
         kernel.getAs<IntegrateDrudeNoseHooverStepKernel>().execute(*context, *this);
+        isKESumValid = true;
     }
 }

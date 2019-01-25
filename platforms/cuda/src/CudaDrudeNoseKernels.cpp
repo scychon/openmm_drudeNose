@@ -75,6 +75,7 @@ CudaIntegrateDrudeNoseHooverStepKernel::~CudaIntegrateDrudeNoseHooverStepKernel(
 void CudaIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, const DrudeNoseHooverIntegrator& integrator, const DrudeForce& force) {
     cu.getPlatformData().initializeContexts(system);
 
+    KESum = 0.0;
     drudeDof = 0;
     drudekbT = BOLTZ * integrator.getDrudeTemperature();
     realkbT = BOLTZ * integrator.getTemperature();
@@ -126,7 +127,9 @@ void CudaIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, co
         double resInvMass = integrator.getResInvMass(resid);
         if (mass != 0.0) {
             tempGroupDof[tg] += 3;
-            tempGroupRedMass[tg] += 3 * mass * resInvMass;
+            if (integrator.getUseCOMTempGroup()) {
+                tempGroupRedMass[tg] += 3 * mass * resInvMass;
+            }
         }
     }
     for (int i = 0; i < force.getNumParticles(); i++) {
@@ -191,15 +194,20 @@ void CudaIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, co
 
         tempGroupDof[tg] -= 1;
     }
-    tempGroupDof[numTempGroups] = 3*integrator.getNumResidues();
+    if (integrator.getUseCOMTempGroup()) {
+        tempGroupDof[numTempGroups] = 3*integrator.getNumResidues();
+    }
+
     tempGroupDof[numTempGroups+1] = drudeDof;
 
     // Don't Ignore CM motion removal, which is small relative to the large d.o.f. for condensed phase
-    for (int i = 0; i < system.getNumForces(); i++) {
-        if (typeid(system.getForce(i)) == typeid(CMMotionRemover)) {
-            cout << "CMMotion removal found, reduce dof by 3\n";
-            tempGroupDof[numTempGroups] -= 3;
-            break;
+    if (integrator.getUseCOMTempGroup()) {
+        for (int i = 0; i < system.getNumForces(); i++) {
+            if (typeid(system.getForce(i)) == typeid(CMMotionRemover)) {
+                cout << "CMMotion removal found, reduce dof by 3\n";
+                tempGroupDof[numTempGroups] -= 3;
+                break;
+            }
         }
     }
 
@@ -235,6 +243,7 @@ void CudaIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, co
     cout << "drude NkbT : " << drudeNkbT << "drudeQ0 : " << etaMass[itg][0] << ", drude Dof : " << tempGroupDof[itg] << "\n";
     cout << "Num NH Chain : " << integrator.getNumNHChains() << "\n";
     cout << "Use NH Chain for Drude dof : " << integrator.getUseDrudeNHChains() << "\n";
+    cout << "Use COM Temperature group : " << integrator.getUseCOMTempGroup() << "\n";
     cout << "real couplingTime : " << integrator.getCouplingTime() << "\n";
     cout << "drude couplingTime : " << integrator.getDrudeCouplingTime() << "\n";
 //    cout << "pair Particles[0].x : " << pairParticleVec[0].x << "\n";
@@ -269,7 +278,7 @@ void CudaIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, co
     kernelPos = cu.getKernel(module, "integrateDrudeNoseHooverPositions");
     hardwallKernel = cu.getKernel(module, "applyHardWallConstraints");
     prevStepSize = -1.0;
-    cout << "Cuda Modules are created\n";
+    cout << "Cuda Modules are created\n" << flush;
 }
 
 void CudaIntegrateDrudeNoseHooverStepKernel::execute(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator) {
@@ -332,7 +341,10 @@ void CudaIntegrateDrudeNoseHooverStepKernel::execute(ContextImpl& context, const
     //cout << "vscaleDrude at NHChain : " << vscaleDrude << "\n";
 
     //cout << "vscale : " << vscale << ", vscaleDrude : " << vscaleDrude << "\n";
-
+    if (cu.getAtomsWereReordered()) {
+        //cout << "#Atoms reordered ! recalculate Force ! \n" << flush;
+        context.calcForcesAndEnergy(true, false);
+    }
 
     bool updatePosDelta = false;
     void *updatePosDeltaPtr = &updatePosDelta;
@@ -457,7 +469,7 @@ std::vector<double> CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(Con
     bool useCOMGroup = integrator.getUseCOMTempGroup();
     void *useCOMTempGroupPtr = &useCOMGroup;
     void* argsCOMVel[] = {&cu.getVelm().getDevicePointer(),
-            &particlesInResidues->getDevicePointer(), &comVelm->getDevicePointer(),&useCOMTempGroupPtr};
+            &particlesInResidues->getDevicePointer(), &comVelm->getDevicePointer(),useCOMTempGroupPtr};
 
     cu.executeKernel(kernelCOMVel, argsCOMVel, numResidues);
 
@@ -476,6 +488,13 @@ std::vector<double> CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(Con
     cu.executeKernel(kernelKESum, argsKESum, cu.ThreadBlockSize, cu.ThreadBlockSize, cu.ThreadBlockSize* kineticEnergyBuffer->getElementSize());
 
     kineticEnergies->download(kineticEnergiesVec);
+
+    // save kinetic energy to the KESum
+    KESum = 0.0;
+    for (int i =0; i < (int) kineticEnergiesVec.size(); i++) {
+        KESum += kineticEnergiesVec[i];
+    }
+    KESum = 0.5*KESum;
 
 //    vector<double4> comVelmVec(numResidues);
 //    comVelm->download(comVelmVec);
@@ -539,7 +558,9 @@ std::vector<double> CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(Con
     // Calculate scaling factor for velocities using multiple Nose-Hoover chain thermostat scheme
     vector<double> expfac(numTempGroups+2, 1.0);
     for (int itg = 0; itg < numTempGroups+1; itg++) {
-        etaDotDot[itg][0] = (kineticEnergiesVec[itg] - tempGroupNkbT[itg]) / etaMass[itg][0];
+        if (etaMass[itg][0]>0) {
+            etaDotDot[itg][0] = (kineticEnergiesVec[itg] - tempGroupNkbT[itg]) / etaMass[itg][0];
+        }
         //cout << "itg : " << itg << ", etaDotDot : " << etaDotDot[itg][0] << ", etaDot : " << etaDot[itg][0] << "\n";
         for (int iter = 0; iter < numDrudeSteps; iter++) {
             for (int i = integrator.getNumNHChains()-1; i >= 0; i--) {
@@ -555,7 +576,9 @@ std::vector<double> CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(Con
                 eta[itg][i] += dtc2 * etaDot[itg][i];
             }
 
-            etaDotDot[itg][0] = (kineticEnergiesVec[itg] - tempGroupNkbT[itg]) / etaMass[itg][0];
+            if (etaMass[itg][0]>0) {
+                etaDotDot[itg][0] = (kineticEnergiesVec[itg] - tempGroupNkbT[itg]) / etaMass[itg][0];
+            }
 
             etaDot[itg][0] *= expfac[itg];
             etaDot[itg][0] += etaDotDot[itg][0] * dtc4;
@@ -628,6 +651,11 @@ std::vector<double> CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(Con
 //std::make_tuple(vscale, vscaleDrude, vscaleCenter);
 }
 
-double CudaIntegrateDrudeNoseHooverStepKernel::computeKineticEnergy(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator) {
-    return cu.getIntegrationUtilities().computeKineticEnergy(0.5*integrator.getStepSize());
+double CudaIntegrateDrudeNoseHooverStepKernel::computeKineticEnergy(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator, bool isKESumValid) {
+    if (! isKESumValid)
+        KESum = cu.getIntegrationUtilities().computeKineticEnergy(0);
+
+    return KESum;  
+    //return cu.getIntegrationUtilities().computeKineticEnergy(0);
+    //return cu.getIntegrationUtilities().computeKineticEnergy(0.5*integrator.getStepSize());
 }
