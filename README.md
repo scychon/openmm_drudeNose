@@ -12,7 +12,7 @@ steps:
 
 1. Create a directory in which to build the plugin.
 
-2. Set environmental variables such as CXXFLAGS='std=c++11', OPENMM_CUDA_COMPILER=$(which nvcc)
+2. Set environmental variables such as CXXFLAGS='-std=c++11', OPENMM_CUDA_COMPILER=$(which nvcc)
 
 3. Run the CMake GUI or ccmake, specifying your new directory as the build directory and the top
 level directory of this project as the source directory.
@@ -28,11 +28,15 @@ this will be the same as OPENMM_DIR, so the plugin will be added to your OpenMM 
 7. If you plan to build the CUDA platform, make sure that CUDA_TOOLKIT_ROOT_DIR is set correctly
 and that EXAMPLE_BUILD_CUDA_LIB is selected.
 
-8. OpenCL Platform is not supported
+8. Only CUDA Platform is supported
 
 9. Press "Configure" again if necessary, then press "Generate".
 
-10. Use the build system you selected to build and install the plugin.
+10. For better performance, modify OpenMM src file $OPENMM_SRC_DIR/plugins/drude/openmmapi/include/openmm/internal/DrudeForceImpl.h in the following line. We suggested Peter to change the plugin code, but this is not corrected yet (for OpenMM 7.2)
+-    void updateContextState(ContextImpl& context) {
++    void updateContextState(ContextImpl& context, bool& forcesInvalid) {
+
+11. Use the build system you selected to build and install the plugin.
 Performing three sets of commands 'make / make install / make PythonInstall' will install the plugin
 as 'drudenoseplugin' package in your python
 

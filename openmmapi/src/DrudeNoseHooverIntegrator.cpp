@@ -183,20 +183,11 @@ void DrudeNoseHooverIntegrator::step(int steps) {
     if (context == NULL)
         throw OpenMMException("This Integrator is not bound to a context!");    
     for (int i = 0; i < steps; ++i) {
-        if (hasBarostat) {
-            Vec3 initialBox[3];
-            context->getPeriodicBoxVectors(initialBox[0], initialBox[1], initialBox[2]);
-            context->updateContextState();
-            Vec3 finalBox[3];
-            context->getPeriodicBoxVectors(finalBox[0], finalBox[1], finalBox[2]);
-            if (initialBox[0] != finalBox[0] || initialBox[1] != finalBox[1] || initialBox[2] != finalBox[2]) {
-                //std::cout << "#Box has changed ! recalculate force\n" << std::flush;
-                context->calcForcesAndEnergy(true, false);
-            }
-        }
-        else {
-            context->updateContextState();
-        }
+        if (context->updateContextState())
+            context->calcForcesAndEnergy(true, false);
+        else if (context->getLastForceGroups() >= 0)
+            context->calcForcesAndEnergy(true, false);
+
         kernel.getAs<IntegrateDrudeNoseHooverStepKernel>().execute(*context, *this);
         isKESumValid = true;
     }
