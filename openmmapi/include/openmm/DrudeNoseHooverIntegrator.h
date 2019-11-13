@@ -68,7 +68,7 @@ public:
      * @param useDrudeNHChains    whether to use the NH-Chain for the drude d.o.f. (bool)
      * @param useCOMTempGroup    whether to use the NH-Chain for the drude d.o.f. (bool)
      */
-    DrudeNoseHooverIntegrator(double temperature, double couplingTime, double drudeTemperature, double drudeCouplingTime, double stepSize, int drudeStepsPerRealStep=20, int numNHChains=1, bool useDrudeNHChains=true, bool useCOMTempGroup=true);
+    DrudeNoseHooverIntegrator(double temperature, double couplingTime, double drudeTemperature, double drudeCouplingTime, double stepSize, int drudeStepsPerRealStep=20, int numNHChains=1, bool useDrudeNHChains=false, bool useCOMTempGroup=true);
     /**
      * Get the temperature of the main heat bath (in Kelvin).
      *
