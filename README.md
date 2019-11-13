@@ -45,36 +45,7 @@ as 'drudenoseplugin' package in your python
 Test Cases
 ==========
 
-To run all the test cases build the "test" target, for example by typing `make test`.
-
-This project contains several different directories for test cases: one for each platform, and
-another for serialization related code.  Each of these directories contains a CMakeLists.txt file
-that automatically creates a test from every file whose name starts with "Test" and ends with
-".cpp".  To create new tests, just add a new file to any of these directories.  The file should
-contain a `main()` function that executes any tests in the file and returns 0 if all tests were
-successful or 1 if any of them failed.
-
-Usually plugins are loaded dynamically at runtime, but that doesn't work well for test cases:
-you want to be able to run the tests before the plugin has yet been installed into the plugins
-directory.  Instead, the test cases directly link against the relevant plugin libraries.  But
-that creates another problem: when a plugin is dynamically loaded at runtime, its platforms and
-kernels are registered automatically, but that doesn't happen for code that statically links
-against it.  Therefore, the very first line of each `main()` function typically invokes a method
-to do the registration that _would_ have been done if the plugin were loaded automatically:
-
-    registerExampleOpenCLKernelFactories();
-
-The OpenCL and CUDA test directories create three tests from each source file: the program is
-invoked three times while passing the strings "single", "mixed", and "double" as a command line
-argument.  The `main()` function should take this value and set it as the default precision for
-the platform:
-
-    if (argc > 1)
-        Platform::getPlatformByName("OpenCL").setPropertyDefaultValue("OpenCLPrecision", string(argv[1]));
-
-This causes the plugin to be tested in all three of the supported precision modes every time you
-run the test suite.
-
+Due to the issues with dynamic loading of regular Drude Kernel vs. static loading of current kernel, `make test` is not supported currently. One could instead use example scripts and codes under `example` directory.
 
 OpenCL and CUDA Kernels
 =======================
@@ -120,16 +91,20 @@ install the module.  Once you do that, you can use the plugin from your Python s
     from simtk.openmm import *
     from simtk.unit import *
     from drudenoseplugin import DrudeNoseHooverIntegrator
-    integ = DrudeNoseHooverIntegrator(temperature, REALFREQ*picosecond, 1*kelvin, DRUDEFREQ*picosecond, 0.001*picoseconds, 20, CHAINFREQ)
+    integ = DrudeNoseHooverIntegrator(temperature, REALFREQ*picosecond, 1*kelvin, DRUDEFREQ*picosecond, 0.001*picoseconds, 20)
 
-If you wish to use independent temperature group for central atoms in plannar geometry (plannar improper),
-you may add the following lines to your python script to add the central atoms to the integrator.
+If you wish to use independent temperature group for specific atoms,
+you may add the following lines to your python script to add new atomgroup and add atoms to the atomgroup.
 
-    improperForce = ''force object that contains only your desired improper torsions''
-        ((  improperForce = [f for f in [system.getForce(i) for i in range(system.getNumForces())] if type(f) == PeriodicTorsionForce][0]  ))
-    for i in range(improperForce.getNumTorsions()):
-        YOUR_INTEGRATOR.addCenterParticle(improperForce.getTorsionParameters(i)[2])
+    YOUR_INTEGRATOR.addTempGroup()
 
+    for ATOMS in YOUR_SYSTEM:
+        YOUR_INTEGRATOR.addParticleTempGroup(GROUPIDX)
+
+Here, you have to set addParticleTempGroup for each atoms in your system.
+Note that when you add a tempgroup by addTempGroup(), 
+the default tempgroup would have idx 0 and the added tempgroup would have idx 1.
+When there's bond constraints, atoms under the constraint should be assigned to the same tempgroup.
 
 
 License
