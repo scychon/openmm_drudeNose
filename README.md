@@ -107,6 +107,18 @@ the default tempgroup would have idx 0 and the added tempgroup would have idx 1.
 When there's bond constraints, atoms under the constraint should be assigned to the same tempgroup.
 
 
+Citing This Work
+======================
+Any work that uses this plugin should cite the following publication:
+
+Son, C. Y.; McDaniel, J. G.; Cui, Q.; Yethiraj, A.;
+"Proper Thermal Equilibration of Simulations with Drude Polarizable Models:
+ Temperature-Grouped Dual-Nosé–Hoover Thermostat",
+J. Phys. Chem. Lett. 2019, 10, 23, 7523-7530
+
+You may also need to cite the original OpenMM toolkit publication.
+To find the right reference for OpenMM, please refer to [OpenMM user manual](http://docs.openmm.org/latest/userguide/introduction.html#referencing-openmm)
+
 License
 =======
 
