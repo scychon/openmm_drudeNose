@@ -1,5 +1,5 @@
-#ifndef OPENMM_DRUDENOSEHOOVERINTEGRATOR_H_
-#define OPENMM_DRUDENOSEHOOVERINTEGRATOR_H_
+#ifndef OPENMM_DRUDETGNHINTEGRATOR_H_
+#define OPENMM_DRUDETGNHINTEGRATOR_H_
 
 /* -------------------------------------------------------------------------- *
  *                                   OpenMM                                   *
@@ -39,7 +39,7 @@
 namespace OpenMM {
 
 /**
- * This Integrator simulates systems that include Drude particles.  It applies two different NoseHoover
+ * This Integrator simulates systems that include Drude particles.  It applies two different TGNH
  * thermostats to different parts of the system.  The first is applied to ordinary particles (ones that
  * are not part of a Drude particle pair), as well as to the center of mass of each Drude particle pair.
  * A second thermostat, typically with a much lower temperature, is applied to the relative internal
@@ -53,10 +53,10 @@ namespace OpenMM {
  * particles.
  */
 
-class OPENMM_EXPORT_DRUDE DrudeNoseHooverIntegrator : public Integrator {
+class OPENMM_EXPORT_DRUDE DrudeTGNHIntegrator : public Integrator {
 public:
     /**
-     * Create a DrudeNoseHooverIntegrator.
+     * Create a DrudeTGNHIntegrator.
      *
      * @param temperature    the temperature of the main heat bath (in Kelvin)
      * @param couplingTime  the characteristic time with which couples the system to the main heat bath (in picoseconds)
@@ -68,7 +68,7 @@ public:
      * @param useDrudeNHChains    whether to use the NH-Chain for the drude d.o.f. (bool)
      * @param useCOMTempGroup    whether to use the NH-Chain for the drude d.o.f. (bool)
      */
-    DrudeNoseHooverIntegrator(double temperature, double couplingTime, double drudeTemperature, double drudeCouplingTime, double stepSize, int drudeStepsPerRealStep=20, int numNHChains=1, bool useDrudeNHChains=false, bool useCOMTempGroup=true);
+    DrudeTGNHIntegrator(double temperature, double couplingTime, double drudeTemperature, double drudeCouplingTime, double stepSize, int drudeStepsPerRealStep=20, int numNHChains=1, bool useDrudeNHChains=false, bool useCOMTempGroup=true);
     /**
      * Get the temperature of the main heat bath (in Kelvin).
      *
@@ -312,4 +312,4 @@ private:
 
 } // namespace OpenMM
 
-#endif /*OPENMM_DRUDENOSEHOOVERINTEGRATOR_H_*/
+#endif /*OPENMM_DRUDETGNHINTEGRATOR_H_*/

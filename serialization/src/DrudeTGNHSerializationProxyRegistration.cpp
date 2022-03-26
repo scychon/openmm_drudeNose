@@ -1,8 +1,5 @@
-#ifndef OPENMM_DRUDENOSE_H_
-#define OPENMM_DRUDENOSE_H_
-
 /* -------------------------------------------------------------------------- *
- *                               OpenMMDrude                                  *
+ *                                OpenMMDrude                                 *
  * -------------------------------------------------------------------------- *
  * This is part of the OpenMM molecular simulation toolkit originating from   *
  * Simbios, the NIH National Center for Physics-Based Simulation of           *
@@ -32,7 +29,37 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "openmm/DrudeForce.h"
-#include "openmm/DrudeNoseHooverIntegrator.h"
+#ifdef WIN32
+#include <windows.h>
+#include <sstream>
+#else
+#include <dlfcn.h>
+#include <dirent.h>
+#include <cstdlib>
+#endif
 
-#endif /*OPENMM_DRUDENOSE_H_*/
+#include "openmm/OpenMMException.h"
+
+#include "openmm/DrudeTGNHIntegrator.h"
+
+#include "openmm/serialization/SerializationProxy.h"
+
+#include "openmm/serialization/DrudeTGNHIntegratorProxy.h"
+
+#if defined(WIN32)
+    #include <windows.h>
+    extern "C" OPENMM_EXPORT_DRUDE void registerDrudeTGNHSerializationProxies();
+    BOOL WINAPI DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved) {
+        if (ul_reason_for_call == DLL_PROCESS_ATTACH)
+            registerDrudeTGNHSerializationProxies();
+        return TRUE;
+    }
+#else
+    extern "C" void __attribute__((constructor)) registerDrudeTGNHSerializationProxies();
+#endif
+
+using namespace OpenMM;
+
+extern "C" OPENMM_EXPORT_DRUDE void registerDrudeTGNHSerializationProxies() {
+    SerializationProxy::registerProxy(typeid(DrudeTGNHIntegrator), new DrudeTGNHIntegratorProxy());
+}

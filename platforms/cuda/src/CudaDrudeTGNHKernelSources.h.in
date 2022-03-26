@@ -1,3 +1,6 @@
+#ifndef OPENMM_CUDADRUDETGNHKERNELSOURCES_H_
+#define OPENMM_CUDADRUDETGNHKERNELSOURCES_H_
+
 /* -------------------------------------------------------------------------- *
  *                                   OpenMM                                   *
  * -------------------------------------------------------------------------- *
@@ -24,8 +27,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.      *
  * -------------------------------------------------------------------------- */
 
-#include "CudaDrudeNoseKernelSources.h"
+#include <string>
 
-using namespace OpenMM;
-using namespace std;
+namespace OpenMM {
 
+/**
+ * This class is a central holding place for the source code of CUDA kernels.
+ * The CMake build script inserts declarations into it based on the .cu files in the
+ * kernels subfolder.
+ */
+
+class CudaDrudeTGNHKernelSources {
+public:
+@CUDA_FILE_DECLARATIONS@
+};
+
+} // namespace OpenMM
+
+#endif /*OPENMM_CUDADRUDETGNHKERNELSOURCES_H_*/

@@ -1,5 +1,5 @@
-#ifndef CUDA_DRUDENOSE_KERNELS_H_
-#define CUDA_DRUDENOSE_KERNELS_H_
+#ifndef REFERENCE_DRUDETGNH_KERNELS_H_
+#define REFERENCE_DRUDETGNH_KERNELS_H_
 
 /* -------------------------------------------------------------------------- *
  *                                   OpenMM                                   *
@@ -9,7 +9,7 @@
  * Biological Structures at Stanford, funded under the NIH Roadmap for        *
  * Medical Research, grant U54 GM072970. See https://simtk.org.               *
  *                                                                            *
- * Portions copyright (c) 2013-2015 Stanford University and the Authors.      *
+ * Portions copyright (c) 2013 Stanford University and the Authors.           *
  * Authors: Peter Eastman                                                     *
  * Contributors:                                                              *
  *                                                                            *
@@ -32,77 +32,89 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "openmm/DrudeNoseKernels.h"
-#include "CudaContext.h"
-#include "CudaArray.h"
+#include "openmm/DrudeTGNHKernels.h"
+#include "ReferencePlatform.h"
+#include "RealVec.h"
+#include <utility>
+#include <vector>
+
+class ReferenceConstraintAlgorithm;
 
 namespace OpenMM {
 
 
 /**
- * This kernel is invoked by DrudeNoseHooverIntegrator to take one time step
+ * This kernel is invoked by DrudeTGNHIntegrator to take one time step
  */
-class CudaIntegrateDrudeNoseHooverStepKernel : public IntegrateDrudeNoseHooverStepKernel {
+class ReferenceIntegrateDrudeTGNHStepKernel : public IntegrateDrudeTGNHStepKernel {
 public:
-    CudaIntegrateDrudeNoseHooverStepKernel(std::string name, const Platform& platform, CudaContext& cu) :
-            IntegrateDrudeNoseHooverStepKernel(name, platform), cu(cu), normalParticles(NULL), pairParticles(NULL), vscaleFactors(NULL), particleResId(NULL), particlesInResidues(NULL), comVelm(NULL), normVelm(NULL), kineticEnergies(NULL) {
+    ReferenceIntegrateDrudeTGNHStepKernel(std::string name, const Platform& platform, ReferencePlatform::PlatformData& data) :
+        IntegrateDrudeTGNHStepKernel(name, platform), data(data) {
     }
-    ~CudaIntegrateDrudeNoseHooverStepKernel();
+    ~ReferenceIntegrateDrudeTGNHStepKernel();
     /**
      * Initialize the kernel.
      *
      * @param system     the System this kernel will be applied to
-     * @param integrator the DrudeNoseHooverIntegrator this kernel will be used for
+     * @param integrator the DrudeTGNHIntegrator this kernel will be used for
      * @param force      the DrudeForce to get particle parameters from
      */
-    void initialize(const System& system, const DrudeNoseHooverIntegrator& integrator, const DrudeForce& force);
+    void initialize(const System& system, const DrudeTGNHIntegrator& integrator, const DrudeForce& force);
     /**
      * Execute the kernel.
      *
      * @param context        the context in which to execute this kernel
-     * @param integrator     the DrudeNoseHooverIntegrator this kernel is being used for
+     * @param integrator     the DrudeTGNHIntegrator this kernel is being used for
      */
-    void execute(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator);
+    void execute(ContextImpl& context, const DrudeTGNHIntegrator& integrator);
     /**
      * Compute the kinetic energy.
      * 
      * @param context       the context in which to execute this kernel
-     * @param integrator    the DrudeNoseHooverIntegrator this kernel is being used for
+     * @param integrator    the DrudeTGNHIntegrator this kernel is being used for
      * @param isKESumValid  whether use saved KESum or calculate based on new velocities
      */
-    double computeKineticEnergy(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator, bool isKESumValid);
+    double computeKineticEnergy(ContextImpl& context, const DrudeTGNHIntegrator& integrator, bool isKESumValid);
 private:
-    std::vector<double> propagateNHChain(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator);
-    void assignVscaleFactors();
-    CudaContext& cu;
-    double prevStepSize, drudekbT, drudeNkbT, realkbT, KESum;
-    int drudeDof, numResidues, numParticles;
-    CudaArray* normalParticles;
-    CudaArray* pairParticles;
-    CudaArray* vscaleFactors;
-    CudaArray* particleResId;
-    CudaArray* particleTempGroup;
-    CudaArray* particlesInResidues;
-    CudaArray* comVelm;
-    CudaArray* normVelm;
-    CudaArray* kineticEnergyBuffer;
-    CudaArray* kineticEnergies;
-    std::vector<std::vector<double> > etaMass;
-    std::vector<std::vector<double> > eta;
-    std::vector<std::vector<double> > etaDot;
-    std::vector<std::vector<double> > etaDotDot;
-    std::vector<int>    tempGroupDof;
-    std::vector<int>    particleResIdVec;
-    std::vector<int2>   particlesInResiduesVec;
-    std::vector<int>    particleTempGroupVec;
-    std::vector<int>    normalParticleVec;
-    std::vector<int2>   pairParticleVec;
-    std::vector<double>    tempGroupNkbT;
-    std::vector<double>    tempGroupVscaleFactors;
-    std::vector<double>    vscaleFactorsVec;
-    CUfunction kernelVel, kernelPos, hardwallKernel, kernelKE, kernelKESum, kernelChain, kernelNormVel, kernelCOMVel;
+    /**
+     * Compute the kinetic energies for each degrees of freedom
+     * 
+     * @param context     the context in which to execute this kernel
+     */
+    //void computeNoseKineticEnergy(ContextImpl& context);
+    /**
+     * Perform half-step update of dual Nose-Hoover chain thermostat.
+     * 
+     * @param context     the context in which to execute this kernel
+     * @param integrator  the DrudeTGNHIntegrator this kernel is being used for
+     */
+    void propagateNHChain(ContextImpl& context, const DrudeTGNHIntegrator& integrator);
+    /**
+     * Perform half-step update of velocity Verlet move.
+     * 
+     * @param context     the context in which to execute this kernel
+     * @param integrator  the DrudeTGNHIntegrator this kernel is being used for
+     */
+    void propagateHalfVelocity(ContextImpl& context, const DrudeTGNHIntegrator& integrator);
+    ReferencePlatform::PlatformData& data;
+    std::vector<int> normalParticles;
+    std::vector<int> centerParticles;
+    std::vector<std::pair<int, int> > pairParticles;
+    std::vector<bool> pairIsCenterParticle;
+    std::vector<double> particleMass;
+    std::vector<double> particleInvMass;
+    std::vector<double> pairInvTotalMass;
+    std::vector<double> pairInvReducedMass;
+    std::vector<double> centerInvTotalMass;
+    std::vector<double> etaMass;
+    std::vector<double> eta;
+    std::vector<double> etaDot;
+    std::vector<double> etaDotDot;
+    double realkbT, drudekbT, realNkbT, drudeNkbT, centerkbT, centerNkbT;
+    int realDof, drudeDof, centerDof, numTempGroup, idxMaxNHChains, iNumNHChains;
 };
+
 
 } // namespace OpenMM
 
-#endif /*CUDA_DRUDENOSE_KERNELS_H_*/
+#endif /*REFERENCE_DRUDETGNH_KERNELS_H_*/

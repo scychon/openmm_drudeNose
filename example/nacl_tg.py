@@ -2,7 +2,7 @@ from __future__ import print_function
 from simtk.openmm.app import *
 from simtk.openmm import *
 from simtk.unit import *
-from drudenoseplugin import *
+from drudetgnhplugin import *
 from sys import stdout
 from time import gmtime, strftime
 from datetime import datetime
@@ -18,7 +18,7 @@ timestep = 0.001*picoseconds
 numDrudeSteps = 20
 
 # Initialize drude Nose Hoover integrator
-integ = DrudeNoseHooverIntegrator(temperature, REALFREQ, 1*kelvin, DRUDEFREQ, timestep, numDrudeSteps)
+integ = DrudeTGNHIntegrator(temperature, REALFREQ, 1*kelvin, DRUDEFREQ, timestep, numDrudeSteps)
 integ.setMaxDrudeDistance(0.02)
 
 # pdb file excluding drude particles to create modeller - equivalent to nonpolarizable simulations (typically an output from CHARMM-GUI or other preparation package)

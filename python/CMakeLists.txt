@@ -1,5 +1,5 @@
-set(WRAP_FILE DrudeNosePluginWrapper.cpp)
-set(MODULE_NAME drudenoseplugin)
+set(WRAP_FILE DrudeTGNHPluginWrapper.cpp)
+set(MODULE_NAME drudetgnhplugin)
 
 # Execute SWIG to generate source code for the Python module.
 
@@ -9,16 +9,16 @@ add_custom_command(
         -python -c++
         -o "${WRAP_FILE}"
         "-I${OPENMM_DIR}/include"
-        "${CMAKE_CURRENT_SOURCE_DIR}/drudenoseplugin.i"
-    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/drudenoseplugin.i"
+        "${CMAKE_CURRENT_SOURCE_DIR}/drudetgnhplugin.i"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/drudetgnhplugin.i"
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
 )
 
 # Compile the Python module.
 
 add_custom_target(PythonInstall DEPENDS "${WRAP_FILE}")
-set(DRUDENOSEPLUGIN_HEADER_DIR "${CMAKE_SOURCE_DIR}/openmmapi/include")
-set(DRUDENOSEPLUGIN_LIBRARY_DIR "${CMAKE_BINARY_DIR}")
+set(DRUDETGNHPLUGIN_HEADER_DIR "${CMAKE_SOURCE_DIR}/openmmapi/include")
+set(DRUDETGNHPLUGIN_LIBRARY_DIR "${CMAKE_BINARY_DIR}")
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/setup.py ${CMAKE_CURRENT_BINARY_DIR}/setup.py)
 add_custom_command(TARGET PythonInstall
     COMMAND "${PYTHON_EXECUTABLE}" setup.py build

@@ -1,8 +1,5 @@
-#ifndef OPENMM_CUDADRUDENOSEKERNELFACTORY_H_
-#define OPENMM_CUDADRUDENOSEKERNELFACTORY_H_
-
 /* -------------------------------------------------------------------------- *
- *                                   OpenMM                                   *
+ *                                OpenMMDrude                                 *
  * -------------------------------------------------------------------------- *
  * This is part of the OpenMM molecular simulation toolkit originating from   *
  * Simbios, the NIH National Center for Physics-Based Simulation of           *
@@ -32,19 +29,53 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "openmm/KernelFactory.h"
+#include "openmm/Platform.h"
+#include "openmm/internal/AssertionUtilities.h"
+#include "openmm/DrudeForce.h"
+#include "openmm/DrudeTGNHIntegrator.h"
+#include "openmm/serialization/XmlSerializer.h"
+#include <iostream>
+#include <sstream>
 
-namespace OpenMM {
+using namespace OpenMM;
+using namespace std;
 
-/**
- * This KernelFactory creates kernels for the CUDA implementation of the Dual-Nose Drude plugin.
- */
+extern "C" void registerDrudeTGNHSerializationProxies();
 
-class CudaDrudeNoseKernelFactory : public KernelFactory {
-public:
-    KernelImpl* createKernelImpl(std::string name, const Platform& platform, ContextImpl& context) const;
-};
+void testSerialization() {
+    // Create an Integrator.
 
-} // namespace OpenMM
+    DrudeTGNHIntegrator integ1(301.1, 0.1, 10.5, 0.005, 0.001);
 
-#endif /*OPENMM_CUDADRUDENOSEKERNELFACTORY_H_*/
+    // Serialize and then deserialize it.
+
+    stringstream buffer;
+    XmlSerializer::serialize<DrudeTGNHIntegrator>(&integ1, "Integrator", buffer);
+    DrudeTGNHIntegrator* copy = XmlSerializer::deserialize<DrudeTGNHIntegrator>(buffer);
+
+    // Compare the two integrators to see if they are identical.
+    
+    DrudeTGNHIntegrator& integ2 = *copy;
+    ASSERT_EQUAL(integ1.getTemperature(), integ2.getTemperature());
+    ASSERT_EQUAL(integ1.getCouplingTime(), integ2.getCouplingTime());
+    ASSERT_EQUAL(integ1.getDrudeTemperature(), integ2.getDrudeTemperature());
+    ASSERT_EQUAL(integ1.getDrudeCouplingTime(), integ2.getDrudeCouplingTime());
+    ASSERT_EQUAL(integ1.getDrudeStepsPerRealStep(), integ2.getDrudeStepsPerRealStep());
+    ASSERT_EQUAL(integ1.getNumNHChains(), integ2.getNumNHChains());
+    ASSERT_EQUAL(integ1.getUseDrudeNHChains(), integ2.getUseDrudeNHChains());
+    ASSERT_EQUAL(integ1.getConstraintTolerance(), integ2.getConstraintTolerance());
+}
+
+int main() {
+    try {
+        registerDrudeTGNHSerializationProxies();
+        testSerialization();
+    }
+    catch(const exception& e) {
+        cout << "exception: " << e.what() << endl;
+        return 1;
+    }
+    cout << "Done" << endl;
+    return 0;
+}
+

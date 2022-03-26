@@ -1,5 +1,5 @@
-#ifndef DRUDENOSE_KERNELS_H_
-#define DRUDENOSE_KERNELS_H_
+#ifndef OPENMM_REFERENCEDRUDETGNHKERNELFACTORY_H_
+#define OPENMM_REFERENCEDRUDETGNHKERNELFACTORY_H_
 
 /* -------------------------------------------------------------------------- *
  *                                   OpenMM                                   *
@@ -32,47 +32,19 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "openmm/DrudeForce.h"
-#include "openmm/DrudeNoseHooverIntegrator.h"
-#include "openmm/Platform.h"
-#include "openmm/System.h"
-#include "openmm/Vec3.h"
-#include <string>
-#include <vector>
+#include "openmm/KernelFactory.h"
 
 namespace OpenMM {
 
 /**
- * This kernel is invoked by DrudeNoseHooverIntegrator to take one time step.
+ * This KernelFactory creates kernels for the reference implementation of the Drude plugin.
  */
-class IntegrateDrudeNoseHooverStepKernel : public KernelImpl {
+
+class ReferenceDrudeTGNHKernelFactory : public KernelFactory {
 public:
-    static std::string Name() {
-        return "IntegrateDrudeNoseHooverStep";
-    }
-    IntegrateDrudeNoseHooverStepKernel(std::string name, const Platform& platform) : KernelImpl(name, platform) {
-    }
-    /**
-     * Initialize the kernel.
-     *
-     * @param system     the System this kernel will be applied to
-     * @param integrator the DrudeNoseHooverIntegrator this kernel will be used for
-     * @param force      the DrudeForce to get particle parameters from
-     */
-    virtual void initialize(const System& system, const DrudeNoseHooverIntegrator& integrator, const DrudeForce& force) = 0;
-    /**
-     * Execute the kernel.
-     *
-     * @param context        the context in which to execute this kernel
-     * @param integrator     the DrudeNoseHooverIntegrator this kernel is being used for
-     */
-    virtual void execute(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator) = 0;
-    /**
-     * Compute the kinetic energy.
-     */
-    virtual double computeKineticEnergy(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator, bool isKESumValid) = 0;
+    KernelImpl* createKernelImpl(std::string name, const Platform& platform, ContextImpl& context) const;
 };
 
 } // namespace OpenMM
 
-#endif /*DRUDENOSE_KERNELS_H_*/
+#endif /*OPENMM_REFERENCEDRUDETGNHKERNELFACTORY_H_*/

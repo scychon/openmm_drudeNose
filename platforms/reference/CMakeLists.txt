@@ -4,19 +4,19 @@
 # Creates OpenMMDrudeReference library.
 #
 # Windows:
-#   OpenMMDrudeNoseReference.dll
-#   OpenMMDrudeNoseReference.lib
+#   OpenMMDrudeTGNHReference.dll
+#   OpenMMDrudeTGNHReference.lib
 # Unix:
-#   libOpenMMDrudeNoseReference.so
+#   libOpenMMDrudeTGNHReference.so
 #----------------------------------------------------
 
 
 # Collect up information about the version of the OpenMM library we're building
 # and make it available to the code so it can be built into the binaries.
 
-SET(OPENMMDRUDENOSEREFERENCE_LIBRARY_NAME DrudeNosePluginReference)
+SET(OPENMMDRUDETGNHREFERENCE_LIBRARY_NAME DrudeTGNHPluginReference)
 
-SET(SHARED_TARGET ${OPENMMDRUDENOSEREFERENCE_LIBRARY_NAME})
+SET(SHARED_TARGET ${OPENMMDRUDETGNHREFERENCE_LIBRARY_NAME})
 
 INCLUDE_DIRECTORIES(BEFORE "${OPENMM_DIR}/include" "${OPENMM_DIR}/include/openmm" "${OPENMM_DIR}/include/openmm/reference")
 
@@ -52,7 +52,7 @@ INCLUDE_DIRECTORIES(BEFORE ${CMAKE_SOURCE_DIR}/platforms/reference/src)
 ADD_LIBRARY(${SHARED_TARGET} SHARED ${SOURCE_FILES} ${SOURCE_INCLUDE_FILES} ${API_INCLUDE_FILES})
 
 TARGET_LINK_LIBRARIES(${SHARED_TARGET} OpenMM OpenMMDrude)
-TARGET_LINK_LIBRARIES(${SHARED_TARGET} debug ${SHARED_DRUDENOSE_TARGET} optimized ${SHARED_DRUDENOSE_TARGET})
+TARGET_LINK_LIBRARIES(${SHARED_TARGET} debug ${SHARED_DRUDETGNH_TARGET} optimized ${SHARED_DRUDETGNH_TARGET})
 SET_TARGET_PROPERTIES(${SHARED_TARGET} PROPERTIES
     COMPILE_FLAGS "-DOPENMM_BUILDING_SHARED_LIBRARY ${EXTRA_COMPILE_FLAGS}"
     LINK_FLAGS "${EXTRA_COMPILE_FLAGS}")

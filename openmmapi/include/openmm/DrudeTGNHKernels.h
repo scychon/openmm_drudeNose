@@ -1,8 +1,8 @@
-#ifndef OPENMM_DRUDE_NOSEHOOVER_INTEGRATOR_PROXY_H_
-#define OPENMM_DRUDE_NOSEHOOVER_INTEGRATOR_PROXY_H_
+#ifndef DRUDETGNH_KERNELS_H_
+#define DRUDETGNH_KERNELS_H_
 
 /* -------------------------------------------------------------------------- *
- *                                OpenMMDrude                                 *
+ *                                   OpenMM                                   *
  * -------------------------------------------------------------------------- *
  * This is part of the OpenMM molecular simulation toolkit originating from   *
  * Simbios, the NIH National Center for Physics-Based Simulation of           *
@@ -32,22 +32,47 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "openmm/serialization/SerializationProxy.h"
-#include "openmm/internal/windowsExportDrude.h"
+#include "openmm/DrudeForce.h"
+#include "openmm/DrudeTGNHIntegrator.h"
+#include "openmm/Platform.h"
+#include "openmm/System.h"
+#include "openmm/Vec3.h"
+#include <string>
+#include <vector>
 
 namespace OpenMM {
 
 /**
- * This is a proxy for serializing DrudeNoseHooverIntegrator objects.
+ * This kernel is invoked by DrudeTGNHIntegrator to take one time step.
  */
-
-class OPENMM_EXPORT_DRUDE DrudeNoseHooverIntegratorProxy : public SerializationProxy {
+class IntegrateDrudeTGNHStepKernel : public KernelImpl {
 public:
-    DrudeNoseHooverIntegratorProxy();
-    void serialize(const void* object, SerializationNode& node) const;
-    void* deserialize(const SerializationNode& node) const;
+    static std::string Name() {
+        return "IntegrateDrudeTGNHStep";
+    }
+    IntegrateDrudeTGNHStepKernel(std::string name, const Platform& platform) : KernelImpl(name, platform) {
+    }
+    /**
+     * Initialize the kernel.
+     *
+     * @param system     the System this kernel will be applied to
+     * @param integrator the DrudeTGNHIntegrator this kernel will be used for
+     * @param force      the DrudeForce to get particle parameters from
+     */
+    virtual void initialize(const System& system, const DrudeTGNHIntegrator& integrator, const DrudeForce& force) = 0;
+    /**
+     * Execute the kernel.
+     *
+     * @param context        the context in which to execute this kernel
+     * @param integrator     the DrudeTGNHIntegrator this kernel is being used for
+     */
+    virtual void execute(ContextImpl& context, const DrudeTGNHIntegrator& integrator) = 0;
+    /**
+     * Compute the kinetic energy.
+     */
+    virtual double computeKineticEnergy(ContextImpl& context, const DrudeTGNHIntegrator& integrator, bool isKESumValid) = 0;
 };
 
 } // namespace OpenMM
 
-#endif /*OPENMM_DRUDE_NOSEHOOVER_INTEGRATOR_PROXY_H_*/
+#endif /*DRUDETGNH_KERNELS_H_*/

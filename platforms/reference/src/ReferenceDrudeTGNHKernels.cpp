@@ -29,7 +29,7 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "ReferenceDrudeNoseKernels.h"
+#include "ReferenceDrudeTGNHKernels.h"
 #include "openmm/HarmonicAngleForce.h"
 #include "openmm/System.h"
 #include "openmm/OpenMMException.h"
@@ -98,10 +98,10 @@ static double computeShiftedKineticEnergy(ContextImpl& context, vector<double>& 
 }
 
 
-ReferenceIntegrateDrudeNoseHooverStepKernel::~ReferenceIntegrateDrudeNoseHooverStepKernel() {
+ReferenceIntegrateDrudeTGNHStepKernel::~ReferenceIntegrateDrudeTGNHStepKernel() {
 }
 
-void ReferenceIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, const DrudeNoseHooverIntegrator& integrator, const DrudeForce& force) {
+void ReferenceIntegrateDrudeTGNHStepKernel::initialize(const System& system, const DrudeTGNHIntegrator& integrator, const DrudeForce& force) {
     realDof = 0;
     drudeDof = 0;
     realkbT = BOLTZ * integrator.getTemperature();
@@ -218,7 +218,7 @@ void ReferenceIntegrateDrudeNoseHooverStepKernel::initialize(const System& syste
         cout << "realMass1 : " << etaMass[2] << ", drudeQ1 : " << etaMass[3] << "\n";
 }
 
-void ReferenceIntegrateDrudeNoseHooverStepKernel::execute(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator) {
+void ReferenceIntegrateDrudeTGNHStepKernel::execute(ContextImpl& context, const DrudeTGNHIntegrator& integrator) {
     vector<RealVec>& pos = extractPositions(context);
     vector<RealVec>& vel = extractVelocities(context);
     vector<RealVec>& force = extractForces(context);
@@ -417,13 +417,13 @@ void ReferenceIntegrateDrudeNoseHooverStepKernel::execute(ContextImpl& context, 
 /* ----------------------------------------------------------------------
    compute kinetic energies for each degrees of freedom
 ------------------------------------------------------------------------- */
-//void ReferenceIntegrateDrudeNoseHooverStepKernel::computeNHKineticEnergy(ContextImpl& context) {
+//void ReferenceIntegrateDrudeTGNHStepKernel::computeNHKineticEnergy(ContextImpl& context) {
 //}
 
 /* ----------------------------------------------------------------------
    perform half-step update of chain thermostat variables
 ------------------------------------------------------------------------- */
-void ReferenceIntegrateDrudeNoseHooverStepKernel::propagateNHChain(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator)
+void ReferenceIntegrateDrudeTGNHStepKernel::propagateNHChain(ContextImpl& context, const DrudeTGNHIntegrator& integrator)
 {
     vector<RealVec>& vel = extractVelocities(context);
 
@@ -545,7 +545,7 @@ void ReferenceIntegrateDrudeNoseHooverStepKernel::propagateNHChain(ContextImpl& 
     //cout << "compare to first velocity : " << vel[0] << ", second velocity : " << vel[1] << "\n";
 }
 
-void ReferenceIntegrateDrudeNoseHooverStepKernel::propagateHalfVelocity(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator) {
+void ReferenceIntegrateDrudeTGNHStepKernel::propagateHalfVelocity(ContextImpl& context, const DrudeTGNHIntegrator& integrator) {
     vector<RealVec>& vel = extractVelocities(context);
     vector<RealVec>& force = extractForces(context);
 
@@ -583,6 +583,6 @@ void ReferenceIntegrateDrudeNoseHooverStepKernel::propagateHalfVelocity(ContextI
     }
 }
 
-double ReferenceIntegrateDrudeNoseHooverStepKernel::computeKineticEnergy(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator, bool isKESumValid) {
+double ReferenceIntegrateDrudeTGNHStepKernel::computeKineticEnergy(ContextImpl& context, const DrudeTGNHIntegrator& integrator, bool isKESumValid) {
     return computeShiftedKineticEnergy(context, particleInvMass, 0.5*integrator.getStepSize());
 }

@@ -1,4 +1,4 @@
-%module drudenoseplugin
+%module drudetgnhplugin
 
 %import(module="simtk.openmm") "swig/OpenMMSwigHeaders.i"
 %include "swig/typemaps.i"
@@ -19,7 +19,7 @@ namespace std {
 #include "OpenMM.h"
 #include "OpenMMAmoeba.h"
 #include "OpenMMDrude.h"
-#include "OpenMMDrudeNose.h"
+#include "OpenMMDrudeTGNH.h"
 #include "openmm/RPMDIntegrator.h"
 #include "openmm/RPMDMonteCarloBarostat.h"
 %}
@@ -32,34 +32,34 @@ import simtk.unit as unit
 /*
  * Add units to function outputs.
 */
-%pythonappend OpenMM::DrudeNoseHooverIntegrator::getTemperature() const %{
+%pythonappend OpenMM::DrudeTGNHIntegrator::getTemperature() const %{
    val=unit.Quantity(val, unit.kelvin)
 %}
 
-%pythonappend OpenMM::DrudeNoseHooverIntegrator::getCouplingTime() const %{
+%pythonappend OpenMM::DrudeTGNHIntegrator::getCouplingTime() const %{
    val=unit.Quantity(val, unit.picosecond)
 %}
 
-%pythonappend OpenMM::DrudeNoseHooverIntegrator::getDrudeTemperature() const %{
+%pythonappend OpenMM::DrudeTGNHIntegrator::getDrudeTemperature() const %{
    val=unit.Quantity(val, unit.kelvin)
 %}
 
-%pythonappend OpenMM::DrudeNoseHooverIntegrator::getDrudeCouplingTime() const %{
+%pythonappend OpenMM::DrudeTGNHIntegrator::getDrudeCouplingTime() const %{
    val=unit.Quantity(val, unit.picosecond)
 %}
 
-%pythonappend OpenMM::DrudeNoseHooverIntegrator::getMaxDrudeDistance() const %{
+%pythonappend OpenMM::DrudeTGNHIntegrator::getMaxDrudeDistance() const %{
    val=unit.Quantity(val, unit.nanometer)
 %}
 
-%pythonappend OpenMM::DrudeNoseHooverIntegrator::getCenterParticle(int index, int& particle) const %{
+%pythonappend OpenMM::DrudeTGNHIntegrator::getCenterParticle(int index, int& particle) const %{
 %}
 
 namespace OpenMM {
 
-class DrudeNoseHooverIntegrator : public Integrator {
+class DrudeTGNHIntegrator : public Integrator {
 public:
-   DrudeNoseHooverIntegrator(double temperature, double couplingTime, double drudeTemperature, double drudeCouplingTime, double stepSize, int drudeStepsPerRealStep=20, int numNHChains=1, int useDrudeNHChains=True, int useCOMTempGroup=True) ;
+   DrudeTGNHIntegrator(double temperature, double couplingTime, double drudeTemperature, double drudeCouplingTime, double stepSize, int drudeStepsPerRealStep=20, int numNHChains=1, int useDrudeNHChains=True, int useCOMTempGroup=True) ;
 
    double getTemperature() const ;
    void setTemperature(double temp) ;

@@ -1,15 +1,12 @@
-#ifndef OPENMM_CUDADRUDENOSEKERNELSOURCES_H_
-#define OPENMM_CUDADRUDENOSEKERNELSOURCES_H_
-
 /* -------------------------------------------------------------------------- *
- *                                   OpenMM                                   *
+ *                              OpenMMDrude                                   *
  * -------------------------------------------------------------------------- *
  * This is part of the OpenMM molecular simulation toolkit originating from   *
  * Simbios, the NIH National Center for Physics-Based Simulation of           *
  * Biological Structures at Stanford, funded under the NIH Roadmap for        *
  * Medical Research, grant U54 GM072970. See https://simtk.org.               *
  *                                                                            *
- * Portions copyright (c) 2010 Stanford University and the Authors.           *
+ * Portions copyright (c) 2011-2012 Stanford University and the Authors.      *
  * Authors: Peter Eastman                                                     *
  * Contributors:                                                              *
  *                                                                            *
@@ -27,21 +24,43 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.      *
  * -------------------------------------------------------------------------- */
 
-#include <string>
+#include <exception>
 
-namespace OpenMM {
+#include "CudaDrudeTGNHKernelFactory.h"
+#include "CudaDrudeTGNHKernels.h"
+#include "openmm/internal/windowsExport.h"
+#include "openmm/internal/ContextImpl.h"
+#include "openmm/OpenMMException.h"
 
-/**
- * This class is a central holding place for the source code of CUDA kernels.
- * The CMake build script inserts declarations into it based on the .cu files in the
- * kernels subfolder.
- */
+using namespace OpenMM;
 
-class CudaDrudeNoseKernelSources {
-public:
-@CUDA_FILE_DECLARATIONS@
-};
+extern "C" OPENMM_EXPORT void registerPlatforms() {
+}
 
-} // namespace OpenMM
+extern "C" OPENMM_EXPORT void registerKernelFactories() {
+    try {
+        Platform& platform = Platform::getPlatformByName("CUDA");
+        CudaDrudeTGNHKernelFactory* factory = new CudaDrudeTGNHKernelFactory();
+        platform.registerKernelFactory(IntegrateDrudeTGNHStepKernel::Name(), factory);
+    }
+    catch (std::exception ex) {
+        // Ignore
+    }
+}
 
-#endif /*OPENMM_CUDADRUDENOSEKERNELSOURCES_H_*/
+extern "C" OPENMM_EXPORT void registerDrudeTGNHCudaKernelFactories() {
+    try {
+        Platform::getPlatformByName("CUDA");
+    }
+    catch (...) {
+        Platform::registerPlatform(new CudaPlatform());
+    }
+    registerKernelFactories();
+}
+
+KernelImpl* CudaDrudeTGNHKernelFactory::createKernelImpl(std::string name, const Platform& platform, ContextImpl& context) const {
+    CudaContext& cu = *static_cast<CudaPlatform::PlatformData*>(context.getPlatformData())->contexts[0];
+    if (name == IntegrateDrudeTGNHStepKernel::Name())
+        return new CudaIntegrateDrudeTGNHStepKernel(name, platform, cu);
+    throw OpenMMException((std::string("Tried to create kernel with illegal kernel name '")+name+"'").c_str());
+}

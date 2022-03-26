@@ -2,7 +2,7 @@
  * Calculate the kinetic energies of each degree of freedom.
  */
 
-extern "C" __global__ void computeDrudeNoseHooverKineticEnergies(mixed4* __restrict__ velm, 
+extern "C" __global__ void computeDrudeTGNHKineticEnergies(mixed4* __restrict__ velm, 
         const int* __restrict__ normalParticles, const int2* __restrict__ pairParticles,
         mixed* __restrict__ normalKE, mixed* __restrict__ realKE, mixed* __restrict__ drudeKE) {
  
@@ -243,10 +243,10 @@ extern "C" __global__ void sumNormalizedKineticEnergies(double* __restrict__ kin
 
 
 /**
- * Perform the velocity update of NoseHoover Chain integration.
+ * Perform the velocity update of TGNH Chain integration.
  */
 
-extern "C" __global__ void integrateDrudeNoseHooverChain(mixed4* __restrict__ velm, const mixed4* __restrict__ normVelm,
+extern "C" __global__ void integrateDrudeTGNHChain(mixed4* __restrict__ velm, const mixed4* __restrict__ normVelm,
         const int* __restrict__ normalParticles, const int2* __restrict__ pairParticles, const int* __restrict__ particleTempGroup, const mixed* __restrict__ vscaleFactors) {
 
     mixed vscaleCOM = vscaleFactors[NUM_TEMP_GROUPS];
@@ -301,10 +301,10 @@ extern "C" __global__ void integrateDrudeNoseHooverChain(mixed4* __restrict__ ve
 }
 
 /**
- * Perform the velocity update of NoseHoover Chain integration.
+ * Perform the velocity update of TGNH Chain integration.
  */
 
-extern "C" __global__ void integrateDrudeNoseHooverVelocities(mixed4* __restrict__ velm, const long long* __restrict__ force, mixed4* __restrict__ posDelta,
+extern "C" __global__ void integrateDrudeTGNHVelocities(mixed4* __restrict__ velm, const long long* __restrict__ force, mixed4* __restrict__ posDelta,
         const int* __restrict__ normalParticles, const int2* __restrict__ pairParticles, const mixed2* __restrict__ dt, const mixed fscale,
         const mixed fscaleDrude, bool updatePosDelta) {
     mixed stepSize = dt[0].y;
@@ -365,10 +365,10 @@ extern "C" __global__ void integrateDrudeNoseHooverVelocities(mixed4* __restrict
 }
 
 /**
- * Perform the velocity update of NoseHoover Chain integration.
+ * Perform the velocity update of TGNH Chain integration.
  */
 
-extern "C" __global__ void integrateDrudeNoseHooverVelocitiesAndPositions(mixed4* __restrict__ velm, const long long* __restrict__ force, mixed4* __restrict__ posDelta,
+extern "C" __global__ void integrateDrudeTGNHVelocitiesAndPositions(mixed4* __restrict__ velm, const long long* __restrict__ force, mixed4* __restrict__ posDelta,
         const int* __restrict__ normalParticles, const int2* __restrict__ pairParticles, const mixed2* __restrict__ dt, const mixed vscale, const mixed fscale,
         const mixed vscaleDrude, const mixed fscaleDrude, bool updatePosDelta) {
     mixed stepSize = dt[0].y;
@@ -429,10 +429,10 @@ extern "C" __global__ void integrateDrudeNoseHooverVelocitiesAndPositions(mixed4
 }
 
 /**
- * Perform the position update of NoseHoover integration.
+ * Perform the position update of TGNH integration.
  */
 
-extern "C" __global__ void integrateDrudeNoseHooverPositions(real4* __restrict__ posq, real4* __restrict__ posqCorrection, const mixed4* __restrict__ posDelta, mixed4* __restrict__ velm, const mixed2* __restrict__ dt) {
+extern "C" __global__ void integrateDrudeTGNHPositions(real4* __restrict__ posq, real4* __restrict__ posqCorrection, const mixed4* __restrict__ posDelta, mixed4* __restrict__ velm, const mixed2* __restrict__ dt) {
     double invStepSize = 1.0/dt[0].y;
     int index = blockIdx.x*blockDim.x+threadIdx.x;
     while (index < NUM_ATOMS) {

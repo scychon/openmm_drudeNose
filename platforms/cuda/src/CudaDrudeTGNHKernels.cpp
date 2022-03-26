@@ -29,8 +29,8 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "CudaDrudeNoseKernels.h"
-#include "CudaDrudeNoseKernelSources.h"
+#include "CudaDrudeTGNHKernels.h"
+#include "CudaDrudeTGNHKernelSources.h"
 #include "openmm/internal/ContextImpl.h"
 #include "openmm/CMMotionRemover.h"
 #include "CudaBondedUtilities.h"
@@ -49,7 +49,7 @@ using namespace OpenMM;
 using namespace std;
 
 
-CudaIntegrateDrudeNoseHooverStepKernel::~CudaIntegrateDrudeNoseHooverStepKernel() {
+CudaIntegrateDrudeTGNHStepKernel::~CudaIntegrateDrudeTGNHStepKernel() {
     if (normalParticles != NULL)
         delete normalParticles;
     if (pairParticles != NULL)
@@ -72,7 +72,7 @@ CudaIntegrateDrudeNoseHooverStepKernel::~CudaIntegrateDrudeNoseHooverStepKernel(
         delete kineticEnergies;
 }
 
-void CudaIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, const DrudeNoseHooverIntegrator& integrator, const DrudeForce& force) {
+void CudaIntegrateDrudeTGNHStepKernel::initialize(const System& system, const DrudeTGNHIntegrator& integrator, const DrudeForce& force) {
     cu.getPlatformData().initializeContexts(system);
 
     KESum = 0.0;
@@ -266,22 +266,22 @@ void CudaIntegrateDrudeNoseHooverStepKernel::initialize(const System& system, co
     cout << "NUM_ATOMS : " << cu.getNumAtoms() << ", PADDED_NUM_ATOMS : " << cu.getPaddedNumAtoms() << ", NUM_NORMAL_PARTICLES : " << normalParticleVec.size() << ", NUM_PAIRS : " << pairParticleVec.size() << ", WORK_GROUP_SIZE : " << CudaContext::ThreadBlockSize << ", cu.ThreadBlockSize " << cu.ThreadBlockSize << ", NUM_TEMP_GROUPS : " << numTempGroups << "\n";
     //defines["NUM_DRUDE_STEPS"] = cu.intToString(numDrudeSteps);
     map<string, string> replacements;
-    CUmodule module = cu.createModule(CudaDrudeNoseKernelSources::vectorOps+CudaDrudeNoseKernelSources::drudeNoseHoover, defines, "");
-//    kernelKE = cu.getKernel(module, "computeDrudeNoseHooverKineticEnergies");
+    CUmodule module = cu.createModule(CudaDrudeTGNHKernelSources::vectorOps+CudaDrudeTGNHKernelSources::drudeTGNH, defines, "");
+//    kernelKE = cu.getKernel(module, "computeDrudeTGNHKineticEnergies");
 //    kernelKESum = cu.getKernel(module, "sumDrudeKineticEnergies");
     kernelKE = cu.getKernel(module, "computeNormalizedKineticEnergies");
     kernelKESum = cu.getKernel(module, "sumNormalizedKineticEnergies");
     kernelCOMVel = cu.getKernel(module, "calcCOMVelocities");
     kernelNormVel = cu.getKernel(module, "normalizeVelocities");
-    kernelChain = cu.getKernel(module, "integrateDrudeNoseHooverChain");
-    kernelVel = cu.getKernel(module, "integrateDrudeNoseHooverVelocities");
-    kernelPos = cu.getKernel(module, "integrateDrudeNoseHooverPositions");
+    kernelChain = cu.getKernel(module, "integrateDrudeTGNHChain");
+    kernelVel = cu.getKernel(module, "integrateDrudeTGNHVelocities");
+    kernelPos = cu.getKernel(module, "integrateDrudeTGNHPositions");
     hardwallKernel = cu.getKernel(module, "applyHardWallConstraints");
     prevStepSize = -1.0;
     cout << "Cuda Modules are created\n" << flush;
 }
 
-void CudaIntegrateDrudeNoseHooverStepKernel::execute(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator) {
+void CudaIntegrateDrudeTGNHStepKernel::execute(ContextImpl& context, const DrudeTGNHIntegrator& integrator) {
     cu.setAsCurrent();
     CudaIntegrationUtilities& integration = cu.getIntegrationUtilities();
     int numAtoms = cu.getNumAtoms();
@@ -410,7 +410,7 @@ void CudaIntegrateDrudeNoseHooverStepKernel::execute(ContextImpl& context, const
 /* ----------------------------------------------------------------------
    assign and upload vscale factors for each particles to the cuda array
 ------------------------------------------------------------------------- */
-void CudaIntegrateDrudeNoseHooverStepKernel::assignVscaleFactors() {
+void CudaIntegrateDrudeTGNHStepKernel::assignVscaleFactors() {
     if (cu.getUseDoublePrecision() || cu.getUseMixedPrecision()) {
         vector<double> vscaleFactorsVec;
         for (int i=0; i < tempGroupVscaleFactors.size(); i++) {
@@ -430,7 +430,7 @@ void CudaIntegrateDrudeNoseHooverStepKernel::assignVscaleFactors() {
 /* ----------------------------------------------------------------------
    perform half-step update of chain thermostat variables
 ------------------------------------------------------------------------- */
-std::vector<double> CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator) {
+std::vector<double> CudaIntegrateDrudeTGNHStepKernel::propagateNHChain(ContextImpl& context, const DrudeTGNHIntegrator& integrator) {
     int numAtoms = cu.getNumAtoms();
 
     double stepSize = integrator.getStepSize();
@@ -651,7 +651,7 @@ std::vector<double> CudaIntegrateDrudeNoseHooverStepKernel::propagateNHChain(Con
 //std::make_tuple(vscale, vscaleDrude, vscaleCenter);
 }
 
-double CudaIntegrateDrudeNoseHooverStepKernel::computeKineticEnergy(ContextImpl& context, const DrudeNoseHooverIntegrator& integrator, bool isKESumValid) {
+double CudaIntegrateDrudeTGNHStepKernel::computeKineticEnergy(ContextImpl& context, const DrudeTGNHIntegrator& integrator, bool isKESumValid) {
     if (! isKESumValid)
         KESum = cu.getIntegrationUtilities().computeKineticEnergy(0);
 

@@ -1,5 +1,8 @@
+#ifndef OPENMM_CUDADRUDETGNHKERNELFACTORY_H_
+#define OPENMM_CUDADRUDETGNHKERNELFACTORY_H_
+
 /* -------------------------------------------------------------------------- *
- *                                OpenMMDrude                                 *
+ *                                   OpenMM                                   *
  * -------------------------------------------------------------------------- *
  * This is part of the OpenMM molecular simulation toolkit originating from   *
  * Simbios, the NIH National Center for Physics-Based Simulation of           *
@@ -29,39 +32,19 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "openmm/serialization/DrudeNoseHooverIntegratorProxy.h"
-#include "openmm/serialization/SerializationNode.h"
-#include "openmm/DrudeNoseHooverIntegrator.h"
-#include <sstream>
+#include "openmm/KernelFactory.h"
 
-using namespace OpenMM;
-using namespace std;
+namespace OpenMM {
 
-DrudeNoseHooverIntegratorProxy::DrudeNoseHooverIntegratorProxy() : SerializationProxy("DrudeNoseHooverIntegrator") {
-}
+/**
+ * This KernelFactory creates kernels for the CUDA implementation of the temperature grouped Dual-NoseHoover Drude plugin.
+ */
 
-void DrudeNoseHooverIntegratorProxy::serialize(const void* object, SerializationNode& node) const {
-    node.setIntProperty("version", 1);
-    const DrudeNoseHooverIntegrator& integrator = *reinterpret_cast<const DrudeNoseHooverIntegrator*>(object);
-    node.setDoubleProperty("stepSize", integrator.getStepSize());
-    node.setDoubleProperty("constraintTolerance", integrator.getConstraintTolerance());
-    node.setDoubleProperty("temperature", integrator.getTemperature());
-    node.setDoubleProperty("couplingTime", integrator.getCouplingTime());
-    node.setDoubleProperty("drudeTemperature", integrator.getDrudeTemperature());
-    node.setDoubleProperty("drudeCouplingTime", integrator.getDrudeCouplingTime());
-    node.setIntProperty("drudeStepsPerRealStep", integrator.getDrudeStepsPerRealStep());
-    node.setIntProperty("numNHChains", integrator.getNumNHChains());
-    node.setIntProperty("useDrudeNHChains", integrator.getUseDrudeNHChains());
-}
+class CudaDrudeTGNHKernelFactory : public KernelFactory {
+public:
+    KernelImpl* createKernelImpl(std::string name, const Platform& platform, ContextImpl& context) const;
+};
 
-void* DrudeNoseHooverIntegratorProxy::deserialize(const SerializationNode& node) const {
-    if (node.getIntProperty("version") != 1)
-        throw OpenMMException("Unsupported version number");
-    DrudeNoseHooverIntegrator *integrator = new DrudeNoseHooverIntegrator(node.getDoubleProperty("temperature"),
-            node.getDoubleProperty("couplingTime"), node.getDoubleProperty("drudeTemperature"),
-            node.getDoubleProperty("drudeCouplingTime"), node.getDoubleProperty("stepSize"),
-            node.getIntProperty("drudeStepsPerRealStep"), node.getIntProperty("numNHChains"),
-            node.getBoolProperty("useDrudeNHChains"));
-    integrator->setConstraintTolerance(node.getDoubleProperty("constraintTolerance"));
-    return integrator;
-}
+} // namespace OpenMM
+
+#endif /*OPENMM_CUDADRUDETGNHKERNELFACTORY_H_*/

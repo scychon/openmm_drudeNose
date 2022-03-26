@@ -1,8 +1,5 @@
-#ifndef OPENMM_REFERENCEDRUDENOSEKERNELFACTORY_H_
-#define OPENMM_REFERENCEDRUDENOSEKERNELFACTORY_H_
-
 /* -------------------------------------------------------------------------- *
- *                                   OpenMM                                   *
+ *                                OpenMMDrude                                 *
  * -------------------------------------------------------------------------- *
  * This is part of the OpenMM molecular simulation toolkit originating from   *
  * Simbios, the NIH National Center for Physics-Based Simulation of           *
@@ -32,19 +29,39 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "openmm/KernelFactory.h"
+#include "openmm/serialization/DrudeTGNHIntegratorProxy.h"
+#include "openmm/serialization/SerializationNode.h"
+#include "openmm/DrudeTGNHIntegrator.h"
+#include <sstream>
 
-namespace OpenMM {
+using namespace OpenMM;
+using namespace std;
 
-/**
- * This KernelFactory creates kernels for the reference implementation of the Drude plugin.
- */
+DrudeTGNHIntegratorProxy::DrudeTGNHIntegratorProxy() : SerializationProxy("DrudeTGNHIntegrator") {
+}
 
-class ReferenceDrudeNoseKernelFactory : public KernelFactory {
-public:
-    KernelImpl* createKernelImpl(std::string name, const Platform& platform, ContextImpl& context) const;
-};
+void DrudeTGNHIntegratorProxy::serialize(const void* object, SerializationNode& node) const {
+    node.setIntProperty("version", 1);
+    const DrudeTGNHIntegrator& integrator = *reinterpret_cast<const DrudeTGNHIntegrator*>(object);
+    node.setDoubleProperty("stepSize", integrator.getStepSize());
+    node.setDoubleProperty("constraintTolerance", integrator.getConstraintTolerance());
+    node.setDoubleProperty("temperature", integrator.getTemperature());
+    node.setDoubleProperty("couplingTime", integrator.getCouplingTime());
+    node.setDoubleProperty("drudeTemperature", integrator.getDrudeTemperature());
+    node.setDoubleProperty("drudeCouplingTime", integrator.getDrudeCouplingTime());
+    node.setIntProperty("drudeStepsPerRealStep", integrator.getDrudeStepsPerRealStep());
+    node.setIntProperty("numNHChains", integrator.getNumNHChains());
+    node.setIntProperty("useDrudeNHChains", integrator.getUseDrudeNHChains());
+}
 
-} // namespace OpenMM
-
-#endif /*OPENMM_REFERENCEDRUDENOSEKERNELFACTORY_H_*/
+void* DrudeTGNHIntegratorProxy::deserialize(const SerializationNode& node) const {
+    if (node.getIntProperty("version") != 1)
+        throw OpenMMException("Unsupported version number");
+    DrudeTGNHIntegrator *integrator = new DrudeTGNHIntegrator(node.getDoubleProperty("temperature"),
+            node.getDoubleProperty("couplingTime"), node.getDoubleProperty("drudeTemperature"),
+            node.getDoubleProperty("drudeCouplingTime"), node.getDoubleProperty("stepSize"),
+            node.getIntProperty("drudeStepsPerRealStep"), node.getIntProperty("numNHChains"),
+            node.getBoolProperty("useDrudeNHChains"));
+    integrator->setConstraintTolerance(node.getDoubleProperty("constraintTolerance"));
+    return integrator;
+}

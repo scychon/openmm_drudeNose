@@ -1,5 +1,8 @@
+#ifndef OPENMM_DRUDETGNH_H_
+#define OPENMM_DRUDETGNH_H_
+
 /* -------------------------------------------------------------------------- *
- *                                OpenMMDrude                                 *
+ *                               OpenMMDrude                                  *
  * -------------------------------------------------------------------------- *
  * This is part of the OpenMM molecular simulation toolkit originating from   *
  * Simbios, the NIH National Center for Physics-Based Simulation of           *
@@ -29,53 +32,7 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "openmm/Platform.h"
-#include "openmm/internal/AssertionUtilities.h"
 #include "openmm/DrudeForce.h"
-#include "openmm/DrudeNoseHooverIntegrator.h"
-#include "openmm/serialization/XmlSerializer.h"
-#include <iostream>
-#include <sstream>
+#include "openmm/DrudeTGNHIntegrator.h"
 
-using namespace OpenMM;
-using namespace std;
-
-extern "C" void registerDrudeNoseSerializationProxies();
-
-void testSerialization() {
-    // Create an Integrator.
-
-    DrudeNoseHooverIntegrator integ1(301.1, 0.1, 10.5, 0.005, 0.001);
-
-    // Serialize and then deserialize it.
-
-    stringstream buffer;
-    XmlSerializer::serialize<DrudeNoseHooverIntegrator>(&integ1, "Integrator", buffer);
-    DrudeNoseHooverIntegrator* copy = XmlSerializer::deserialize<DrudeNoseHooverIntegrator>(buffer);
-
-    // Compare the two integrators to see if they are identical.
-    
-    DrudeNoseHooverIntegrator& integ2 = *copy;
-    ASSERT_EQUAL(integ1.getTemperature(), integ2.getTemperature());
-    ASSERT_EQUAL(integ1.getCouplingTime(), integ2.getCouplingTime());
-    ASSERT_EQUAL(integ1.getDrudeTemperature(), integ2.getDrudeTemperature());
-    ASSERT_EQUAL(integ1.getDrudeCouplingTime(), integ2.getDrudeCouplingTime());
-    ASSERT_EQUAL(integ1.getDrudeStepsPerRealStep(), integ2.getDrudeStepsPerRealStep());
-    ASSERT_EQUAL(integ1.getNumNHChains(), integ2.getNumNHChains());
-    ASSERT_EQUAL(integ1.getUseDrudeNHChains(), integ2.getUseDrudeNHChains());
-    ASSERT_EQUAL(integ1.getConstraintTolerance(), integ2.getConstraintTolerance());
-}
-
-int main() {
-    try {
-        registerDrudeNoseSerializationProxies();
-        testSerialization();
-    }
-    catch(const exception& e) {
-        cout << "exception: " << e.what() << endl;
-        return 1;
-    }
-    cout << "Done" << endl;
-    return 0;
-}
-
+#endif /*OPENMM_DRUDETGNH_H_*/

@@ -30,7 +30,7 @@
  * -------------------------------------------------------------------------- */
 
 /**
- * This tests the Reference implementation of DrudeNoseHooverIntegrator.
+ * This tests the CUDA implementation of DrudeTGNHIntegrator.
  */
 
 #include "openmm/internal/AssertionUtilities.h"
@@ -41,7 +41,7 @@
 #include "openmm/System.h"
 #include "openmm/VirtualSite.h"
 #include "openmm/DrudeForce.h"
-#include "openmm/DrudeNoseHooverIntegrator.h"
+#include "openmm/DrudeTGNHIntegrator.h"
 #include "SimTKOpenMMUtilities.h"
 #include <iostream>
 #include <vector>
@@ -49,7 +49,7 @@
 using namespace OpenMM;
 using namespace std;
 
-extern "C" OPENMM_EXPORT void registerDrudeNoseReferenceKernelFactories();
+extern "C" OPENMM_EXPORT void registerDrudeTGNHCudaKernelFactories();
 
 void testSinglePair() {
     const double temperature = 300.0;
@@ -71,9 +71,9 @@ void testSinglePair() {
     vector<Vec3> positions(2);
     positions[0] = Vec3(0, 0, 0);
     positions[1] = Vec3(0, 0, 0.01);
-    DrudeNoseHooverIntegrator integ(temperature, 0.1, temperatureDrude, 0.005, 0.003, 20, 2, false);
+    DrudeTGNHIntegrator integ(temperature, 0.1, temperatureDrude, 0.005, 0.003, 20, 2, false);
     integ.setMaxDrudeDistance(maxDistance);
-    Platform& platform = Platform::getPlatformByName("Reference");
+    Platform& platform = Platform::getPlatformByName("CUDA");
     Context context(system, integ, platform);
     context.setPositions(positions);
     vector<Vec3> velocities(2);
@@ -94,7 +94,7 @@ void testSinglePair() {
     int numSteps = 10000;
     for (int i = 0; i < numSteps; i++) {
         integ.step(10);
-        State state = context.getState(State::Velocities | State::Positions);
+        state = context.getState(State::Velocities | State::Positions);
         const vector<Vec3>& vel = state.getVelocities();
         Vec3 velCM = vel[0]*(mass1/totalMass) + vel[1]*(mass2/totalMass);
         keCM += 0.5*totalMass*velCM.dot(velCM);
@@ -163,9 +163,9 @@ void testWater() {
     // Simulate it and check the temperature.
     system.addForce(new CMMotionRemover());
     
-    DrudeNoseHooverIntegrator integ(temperature, 0.1, temperatureDrude, 0.005, 0.0005, 20, 10, false);
+    DrudeTGNHIntegrator integ(temperature, 0.1, temperatureDrude, 0.005, 0.0005, 20, 10, false);
     integ.setMaxDrudeDistance(maxDistance);
-    Platform& platform = Platform::getPlatformByName("Reference");
+    Platform& platform = Platform::getPlatformByName("CUDA");
     Context context(system, integ, platform);
     context.setPositions(positions);
     context.applyConstraints(1e-5);
@@ -177,7 +177,7 @@ void testWater() {
     // Compute the internal and center of mass temperatures.
     
     double ke = 0;
-    int numSteps = 4000;
+    int numSteps = 10000;
     for (int i = 0; i < numSteps; i++) {
         integ.step(1);
         ke += context.getState(State::Energy).getKineticEnergy();
@@ -188,7 +188,7 @@ void testWater() {
     int numDof = numStandardDof+numDrudeDof;
     double expectedTemp = (numStandardDof*temperature+numDrudeDof*temperatureDrude)/numDof;
     std::cout << "real DOF : " << numStandardDof << ", drude Dof : " << numDrudeDof << "\n";
-    ASSERT_USUALLY_EQUAL_TOL(expectedTemp, ke/(0.5*numDof*BOLTZ), 0.03);
+    ASSERT_USUALLY_EQUAL_TOL(expectedTemp, ke/(0.5*numDof*BOLTZ), 0.02);
 }
 
 void testForceEnergyConsistency() {
@@ -231,8 +231,8 @@ void testForceEnergyConsistency() {
     
     // Simulate it and check that force and energy remain consistent.
     
-    DrudeNoseHooverIntegrator integ(temperature, 50.0, temperatureDrude, 50.0, 0.001, false);
-    Platform& platform = Platform::getPlatformByName("Reference");
+    DrudeTGNHIntegrator integ(temperature, 50.0, temperatureDrude, 50.0, 0.001, false);
+    Platform& platform = Platform::getPlatformByName("CUDA");
     Context context(system, integ, platform);
     context.setPositions(positions);
     State prevState;
@@ -251,9 +251,11 @@ void testForceEnergyConsistency() {
     }
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     try {
-        registerDrudeNoseReferenceKernelFactories();
+        registerDrudeTGNHCudaKernelFactories();
+        if (argc > 1)
+            Platform::getPlatformByName("CUDA").setPropertyDefaultValue("Precision", string(argv[1]));
         //testSinglePair();
         testWater();
         //testForceEnergyConsistency();

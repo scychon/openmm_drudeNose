@@ -29,12 +29,12 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "openmm/DrudeNoseHooverIntegrator.h"
+#include "openmm/DrudeTGNHIntegrator.h"
 #include "openmm/Context.h"
 #include "openmm/OpenMMException.h"
 #include "openmm/internal/AssertionUtilities.h"
 #include "openmm/internal/ContextImpl.h"
-#include "openmm/DrudeNoseKernels.h"
+#include "openmm/DrudeTGNHKernels.h"
 #include <ctime>
 #include <string>
 #include <iostream>
@@ -44,7 +44,7 @@ using namespace OpenMM;
 using std::string;
 using std::vector;
 
-DrudeNoseHooverIntegrator::DrudeNoseHooverIntegrator(double temperature, double couplingTime, double drudeTemperature, double drudeCouplingTime, double stepSize, int drudeStepsPerRealStep, int numNHChains, bool useDrudeNHChains, bool useCOMTempGroup) {
+DrudeTGNHIntegrator::DrudeTGNHIntegrator(double temperature, double couplingTime, double drudeTemperature, double drudeCouplingTime, double stepSize, int drudeStepsPerRealStep, int numNHChains, bool useDrudeNHChains, bool useCOMTempGroup) {
     setTemperature(temperature);
     setCouplingTime(couplingTime);
     setDrudeTemperature(drudeTemperature);
@@ -58,49 +58,49 @@ DrudeNoseHooverIntegrator::DrudeNoseHooverIntegrator(double temperature, double 
     setConstraintTolerance(1e-5);
 }
 
-int DrudeNoseHooverIntegrator::addTempGroup() {
+int DrudeTGNHIntegrator::addTempGroup() {
     tempGroups.push_back(tempGroups.size());
     return tempGroups.size()-1;
 }
 
-int DrudeNoseHooverIntegrator::addParticleTempGroup(int tempGroup) {
+int DrudeTGNHIntegrator::addParticleTempGroup(int tempGroup) {
     ASSERT_VALID_INDEX(tempGroup, tempGroups);
     particleTempGroup.push_back(tempGroup);
     return particleTempGroup.size()-1;
 }
 
-void DrudeNoseHooverIntegrator::setParticleTempGroup(int particle, int tempGroup) {
+void DrudeTGNHIntegrator::setParticleTempGroup(int particle, int tempGroup) {
     ASSERT_VALID_INDEX(particle, particleTempGroup);
     ASSERT_VALID_INDEX(tempGroup, tempGroups);
     particleTempGroup[particle] = tempGroup;
 }
 
-void DrudeNoseHooverIntegrator::getParticleTempGroup(int particle, int& tempGroup) const {
+void DrudeTGNHIntegrator::getParticleTempGroup(int particle, int& tempGroup) const {
     ASSERT_VALID_INDEX(particle, particleTempGroup);
     tempGroup = particleTempGroup[particle];
 }
 
-double DrudeNoseHooverIntegrator::getResInvMass(int resid) const {
+double DrudeTGNHIntegrator::getResInvMass(int resid) const {
     ASSERT_VALID_INDEX(resid, residueInvMasses);
     return residueInvMasses[resid];
 }
 
-int DrudeNoseHooverIntegrator::getParticleResId(int particle) const {
+int DrudeTGNHIntegrator::getParticleResId(int particle) const {
     ASSERT_VALID_INDEX(particle, particleResId);
     return particleResId[particle];
 }
 
-double DrudeNoseHooverIntegrator::getMaxDrudeDistance() const {
+double DrudeTGNHIntegrator::getMaxDrudeDistance() const {
     return maxDrudeDistance;
 }
 
-void DrudeNoseHooverIntegrator::setMaxDrudeDistance(double distance) {
+void DrudeTGNHIntegrator::setMaxDrudeDistance(double distance) {
     if (distance < 0)
         throw OpenMMException("setMaxDrudeDistance: Distance cannot be negative");
     maxDrudeDistance = distance;
 }
 
-void DrudeNoseHooverIntegrator::initialize(ContextImpl& contextRef) {
+void DrudeTGNHIntegrator::initialize(ContextImpl& contextRef) {
     if (owner != NULL && &contextRef.getOwner() != owner)
         throw OpenMMException("This Integrator is already bound to a context");
     const DrudeForce* force = NULL;
@@ -155,31 +155,31 @@ void DrudeNoseHooverIntegrator::initialize(ContextImpl& contextRef) {
     std::cout << "residue inverse Masses assigned ! \n";
     context = &contextRef;
     owner = &contextRef.getOwner();
-    kernel = context->getPlatform().createKernel(IntegrateDrudeNoseHooverStepKernel::Name(), contextRef);
-    kernel.getAs<IntegrateDrudeNoseHooverStepKernel>().initialize(contextRef.getSystem(), *this, *force);
+    kernel = context->getPlatform().createKernel(IntegrateDrudeTGNHStepKernel::Name(), contextRef);
+    kernel.getAs<IntegrateDrudeTGNHStepKernel>().initialize(contextRef.getSystem(), *this, *force);
 }
 
-void DrudeNoseHooverIntegrator::cleanup() {
+void DrudeTGNHIntegrator::cleanup() {
     kernel = Kernel();
 }
 
-void DrudeNoseHooverIntegrator::stateChanged(State::DataType changed) {
+void DrudeTGNHIntegrator::stateChanged(State::DataType changed) {
     isKESumValid = false;
     if (context != NULL)
         context->calcForcesAndEnergy(true, false);
 }
 
-vector<string> DrudeNoseHooverIntegrator::getKernelNames() {
+vector<string> DrudeTGNHIntegrator::getKernelNames() {
     std::vector<std::string> names;
-    names.push_back(IntegrateDrudeNoseHooverStepKernel::Name());
+    names.push_back(IntegrateDrudeTGNHStepKernel::Name());
     return names;
 }
 
-double DrudeNoseHooverIntegrator::computeKineticEnergy() {
-    return kernel.getAs<IntegrateDrudeNoseHooverStepKernel>().computeKineticEnergy(*context, *this, isKESumValid);
+double DrudeTGNHIntegrator::computeKineticEnergy() {
+    return kernel.getAs<IntegrateDrudeTGNHStepKernel>().computeKineticEnergy(*context, *this, isKESumValid);
 }
 
-void DrudeNoseHooverIntegrator::step(int steps) {
+void DrudeTGNHIntegrator::step(int steps) {
     if (context == NULL)
         throw OpenMMException("This Integrator is not bound to a context!");    
     for (int i = 0; i < steps; ++i) {
@@ -188,7 +188,7 @@ void DrudeNoseHooverIntegrator::step(int steps) {
         else if (context->getLastForceGroups() >= 0)
             context->calcForcesAndEnergy(true, false);
 
-        kernel.getAs<IntegrateDrudeNoseHooverStepKernel>().execute(*context, *this);
+        kernel.getAs<IntegrateDrudeTGNHStepKernel>().execute(*context, *this);
         isKESumValid = true;
     }
 }

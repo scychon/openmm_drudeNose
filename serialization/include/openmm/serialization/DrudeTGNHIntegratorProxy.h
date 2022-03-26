@@ -1,3 +1,6 @@
+#ifndef OPENMM_DRUDE_TGNH_INTEGRATOR_PROXY_H_
+#define OPENMM_DRUDE_TGNH_INTEGRATOR_PROXY_H_
+
 /* -------------------------------------------------------------------------- *
  *                                OpenMMDrude                                 *
  * -------------------------------------------------------------------------- *
@@ -29,37 +32,22 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#ifdef WIN32
-#include <windows.h>
-#include <sstream>
-#else
-#include <dlfcn.h>
-#include <dirent.h>
-#include <cstdlib>
-#endif
-
-#include "openmm/OpenMMException.h"
-
-#include "openmm/DrudeNoseHooverIntegrator.h"
-
 #include "openmm/serialization/SerializationProxy.h"
+#include "openmm/internal/windowsExportDrude.h"
 
-#include "openmm/serialization/DrudeNoseHooverIntegratorProxy.h"
+namespace OpenMM {
 
-#if defined(WIN32)
-    #include <windows.h>
-    extern "C" OPENMM_EXPORT_DRUDE void registerDrudeNoseSerializationProxies();
-    BOOL WINAPI DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved) {
-        if (ul_reason_for_call == DLL_PROCESS_ATTACH)
-            registerDrudeNoseSerializationProxies();
-        return TRUE;
-    }
-#else
-    extern "C" void __attribute__((constructor)) registerDrudeNoseSerializationProxies();
-#endif
+/**
+ * This is a proxy for serializing DrudeTGNHIntegrator objects.
+ */
 
-using namespace OpenMM;
+class OPENMM_EXPORT_DRUDE DrudeTGNHIntegratorProxy : public SerializationProxy {
+public:
+    DrudeTGNHIntegratorProxy();
+    void serialize(const void* object, SerializationNode& node) const;
+    void* deserialize(const SerializationNode& node) const;
+};
 
-extern "C" OPENMM_EXPORT_DRUDE void registerDrudeNoseSerializationProxies() {
-    SerializationProxy::registerProxy(typeid(DrudeNoseHooverIntegrator), new DrudeNoseHooverIntegratorProxy());
-}
+} // namespace OpenMM
+
+#endif /*OPENMM_DRUDE_TGNH_INTEGRATOR_PROXY_H_*/

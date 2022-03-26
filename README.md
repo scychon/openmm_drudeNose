@@ -1,8 +1,14 @@
-OpenMM Drude Dual Nose-Hoover Integrator Plugin
+OpenMM Temperature Grouped Drude Dual Nose-Hoover Integrator Plugin
 =====================
 
-This plugin enables applying duan Nose-Hoover thermostat to a extended Lagrangian-scheme
-MD simulate with drude-polarizable force field.
+This plugin enables applying temperature grouped dual Nose-Hoover thermostat
+to run extended Lagrangian-scheme MD simulation with drude-polarizable force field.
+The detailed theory and background can be found in the reference below.
+
+Son, C. Y.; McDaniel, J. G.; Cui, Q.; Yethiraj, A.;
+"Proper Thermal Equilibration of Simulations with Drude Polarizable Models:
+ Temperature-Grouped Dual-Nosé–Hoover Thermostat",
+J. Phys. Chem. Lett. 2019, 10, 23, 7523-7530
 
 Building The Plugin
 ===================
@@ -32,13 +38,14 @@ and that EXAMPLE_BUILD_CUDA_LIB is selected.
 
 9. Press "Configure" again if necessary, then press "Generate".
 
-10. For better performance, modify OpenMM src file $OPENMM_SRC_DIR/plugins/drude/openmmapi/include/openmm/internal/DrudeForceImpl.h in the following line. We suggested Peter to change the plugin code, but this is not corrected yet (for OpenMM 7.2)
+10. (For OpenMM 7.3 or older only) For better performance, modify OpenMM src file $OPENMM_SRC_DIR/plugins/drude/openmmapi/include/openmm/internal/DrudeForceImpl.h in the following line.
+This has been ch
 -    void updateContextState(ContextImpl& context) {
 +    void updateContextState(ContextImpl& context, bool& forcesInvalid) {
 
 11. Use the build system you selected to build and install the plugin.
 Performing three sets of commands 'make / make install / make PythonInstall' will install the plugin
-as 'drudenoseplugin' package in your python
+as 'drudetgnhplugin' package in your python
 
 
 
@@ -90,8 +97,8 @@ install the module.  Once you do that, you can use the plugin from your Python s
     from simtk.openmm.app import *
     from simtk.openmm import *
     from simtk.unit import *
-    from drudenoseplugin import DrudeNoseHooverIntegrator
-    integ = DrudeNoseHooverIntegrator(temperature, REALFREQ*picosecond, 1*kelvin, DRUDEFREQ*picosecond, 0.001*picoseconds, 20)
+    from drudetgnhplugin import DrudeTGNHIntegrator
+    integ = DrudeTGNHIntegrator(temperature, REALFREQ*picosecond, 1*kelvin, DRUDEFREQ*picosecond, 0.001*picoseconds, 20)
 
 If you wish to use independent temperature group for specific atoms,
 you may add the following lines to your python script to add new atomgroup and add atoms to the atomgroup.

@@ -24,8 +24,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.      *
  * -------------------------------------------------------------------------- */
 
-#include "ReferenceDrudeNoseKernelFactory.h"
-#include "ReferenceDrudeNoseKernels.h"
+#include "ReferenceDrudeTGNHKernelFactory.h"
+#include "ReferenceDrudeTGNHKernels.h"
 #include "ReferencePlatform.h"
 #include "openmm/internal/ContextImpl.h"
 #include "openmm/OpenMMException.h"
@@ -39,19 +39,19 @@ extern "C" OPENMM_EXPORT void registerKernelFactories() {
     for (int i = 0; i < Platform::getNumPlatforms(); i++) {
         Platform& platform = Platform::getPlatform(i);
         if (dynamic_cast<ReferencePlatform*>(&platform) != NULL) {
-            ReferenceDrudeNoseKernelFactory* factory = new ReferenceDrudeNoseKernelFactory();
-            platform.registerKernelFactory(IntegrateDrudeNoseHooverStepKernel::Name(), factory);
+            ReferenceDrudeTGNHKernelFactory* factory = new ReferenceDrudeTGNHKernelFactory();
+            platform.registerKernelFactory(IntegrateDrudeTGNHStepKernel::Name(), factory);
         }
     }
 }
 
-extern "C" OPENMM_EXPORT void registerDrudeNoseReferenceKernelFactories() {
+extern "C" OPENMM_EXPORT void registerDrudeTGNHReferenceKernelFactories() {
     registerKernelFactories();
 }
 
-KernelImpl* ReferenceDrudeNoseKernelFactory::createKernelImpl(std::string name, const Platform& platform, ContextImpl& context) const {
+KernelImpl* ReferenceDrudeTGNHKernelFactory::createKernelImpl(std::string name, const Platform& platform, ContextImpl& context) const {
     ReferencePlatform::PlatformData& data = *static_cast<ReferencePlatform::PlatformData*>(context.getPlatformData());
-    if (name == IntegrateDrudeNoseHooverStepKernel::Name())
-        return new ReferenceIntegrateDrudeNoseHooverStepKernel(name, platform, data);
+    if (name == IntegrateDrudeTGNHStepKernel::Name())
+        return new ReferenceIntegrateDrudeTGNHStepKernel(name, platform, data);
     throw OpenMMException((std::string("Tried to create kernel with illegal kernel name '")+name+"'").c_str());
 }
